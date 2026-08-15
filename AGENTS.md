@@ -3,7 +3,7 @@
 ## Scope
 
 - Build a standalone offline Windows desktop application that converts a standard 64x64 Minecraft skin PNG into an editable chibi-style GLB model.
-- This repository contains only the first MVP described below. Do not proceed to later stages without an explicit user request.
+- The current scope is MVP version 0.5.0 with one genuine glTF skin and a stable twelve-joint skeleton.
 - The application is not a Blender add-on or Unity project. Do not use the Blender API.
 
 ## Required technology
@@ -61,7 +61,8 @@
 - `Compact Chibi` is the default; also provide immutable `Balanced Chibi`, `Big Head`, and exact-dimension `Legacy` built-ins.
 - The proportions UI uses linked sliders/spin boxes, JSON user presets, QSettings session persistence, and only a lightweight 2D schematic preview.
 - Do not generate geometry per opaque pixel in this MVP.
-- Do not add an armature, animation, rounded geometry, volumetric hair, 3D preview, `.blend` export, or executable packaging.
+- Export exactly one glTF skin with a stable 12-joint hierarchy, inverse bind matrices, and hard per-part vertex weights.
+- Do not add production animations, elbows, knees, rounded geometry, volumetric hair, 3D preview, `.blend` export, or executable packaging.
 
 ## UI rules
 

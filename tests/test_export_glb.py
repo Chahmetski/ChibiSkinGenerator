@@ -174,7 +174,9 @@ def test_exported_glb_has_named_meshes_and_embedded_pixel_texture(tmp_path: Path
             assert np.dot(face_normal, outward) > 0.0, f"Inward winding in {name}"
             assert np.allclose(normals[triangle], face_normal, atol=1e-6)
 
-    nodes_by_name = {node.get("name"): node for node in document["nodes"]}
+    nodes_by_name = {
+        node.get("name"): node for node in document["nodes"] if "mesh" in node
+    }
     overlay_pairs = {
         "Head_Overlay": "Head",
         "Body_Overlay": "Body",
@@ -192,7 +194,14 @@ def test_exported_glb_has_named_meshes_and_embedded_pixel_texture(tmp_path: Path
             mesh_attributes[base][0].mean(axis=0),
         )
         expected_growth = 0.0625 if overlay == "Head_Overlay" else 0.03125
-        assert np.allclose(mesh_extents[overlay] - mesh_extents[base], expected_growth)
+        growth = mesh_extents[overlay] - mesh_extents[base]
+        if base.startswith("Arm."):
+            # Arm transforms are baked before skinning. Rotation projects the
+            # uniform local offset onto both world X and Y axes.
+            assert np.all(growth > 0.0)
+            assert growth[2] == pytest.approx(expected_growth)
+        else:
+            assert np.allclose(growth, expected_growth)
 
     for head_name in ("Head", "Head_Overlay"):
         positions, normals, texture_uv = mesh_attributes[head_name]

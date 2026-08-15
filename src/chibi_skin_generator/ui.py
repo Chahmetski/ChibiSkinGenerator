@@ -91,11 +91,17 @@ class MainWindow(QMainWindow):
         self.generate_button.setDefault(True)
         self.generate_button.clicked.connect(self._generate)
         self.status_label = QLabel("Готово к генерации.")
+        pose_hint = QLabel(
+            "В Blender: выберите Skeleton → Pose Mode → Head, Spine, Arm.L/R "
+            "или Leg.L/R. Hand и Foot пока вспомогательные и не двигают меши."
+        )
+        pose_hint.setWordWrap(True)
 
         form = QFormLayout()
         form.addRow("Skin PNG:", self._path_row(self.skin_edit, skin_button))
         form.addRow("Тип рук:", self.arm_combo)
         form.addRow("Папка сохранения:", self._path_row(self.output_edit, output_button))
+        form.addRow("Формат:", QLabel("GLB 2.0 · Rigged GLB"))
 
         intro = QLabel(
             "Создаёт редактируемую chibi-модель GLB из стандартного Minecraft-скина. "
@@ -108,6 +114,7 @@ class MainWindow(QMainWindow):
         generator_layout.addLayout(form)
         generator_layout.addWidget(self.generate_button)
         generator_layout.addWidget(self.status_label)
+        generator_layout.addWidget(pose_hint)
         generator_layout.addStretch(1)
 
         generator_tab = QWidget()
@@ -192,11 +199,11 @@ class MainWindow(QMainWindow):
 
     @Slot(str, str)
     def _generation_succeeded(self, output_path: str, arm_model: str) -> None:
-        self.status_label.setText(f"Готово: {output_path}")
+        self.status_label.setText(f"Rigged GLB готов: {output_path}")
         QMessageBox.information(
             self,
             "Генерация завершена",
-            f"GLB создан успешно.\nТип рук: {arm_model}\n\n{output_path}",
+            f"Модель создана с единым скелетом.\nТип рук: {arm_model}\n\n{output_path}",
         )
 
     @Slot(str)
