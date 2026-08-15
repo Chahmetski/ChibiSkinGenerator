@@ -54,9 +54,12 @@
 - Overlay meshes use only the alpha-mask, single-sided `MinecraftSkin_Overlay` material with cutoff 0.5; never use alpha blending.
 - Export explicit flat outward normals and counter-clockwise front-facing triangle winding.
 - Use half-texel-inset UV coordinates and nearest/clamp texture sampling.
-- Default to the `Reference Chibi` proportions: a 1-unit head and a 2-unit total base height. Keep the previous dimensions available only as `Legacy`.
-- Reference arms must be positioned from body/arm half-widths with a 0.0075 shoulder overlap, pivot at the upper inner shoulder edge, and mirrored 5-degree outward rotations.
+- Default to `Compact Chibi`: a 1-unit head and a 2-unit total base height. Keep the previous export dimensions available as `Legacy`.
+- Arms must be positioned from the current settings, pivot at the upper inner shoulder edge, and rotate outward symmetrically.
 - Vertically flip UVs only on the bottom faces of `Head` and `Head_Overlay`; keep every other face unchanged.
+- All editable sizes, positions, joints, overlay offsets, arm rotations, and final height must derive from one validated `ProportionSettings` value.
+- `Compact Chibi` is the default; also provide immutable `Balanced Chibi`, `Big Head`, and exact-dimension `Legacy` built-ins.
+- The proportions UI uses linked sliders/spin boxes, JSON user presets, QSettings session persistence, and only a lightweight 2D schematic preview.
 - Do not generate geometry per opaque pixel in this MVP.
 - Do not add an armature, animation, rounded geometry, volumetric hair, 3D preview, `.blend` export, or executable packaging.
 

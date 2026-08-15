@@ -12,6 +12,7 @@ from .ui import MainWindow
 
 def main() -> int:
     application = QApplication(sys.argv)
+    application.setOrganizationName("ChibiSkinGenerator")
     application.setApplicationName("ChibiSkinGenerator")
     application.setApplicationVersion(__version__)
     window = MainWindow()

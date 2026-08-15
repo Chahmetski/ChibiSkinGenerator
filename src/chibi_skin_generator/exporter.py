@@ -13,7 +13,8 @@ from trimesh.exchange.gltf import export_glb as trimesh_export_glb
 from trimesh.visual.material import PBRMaterial
 from trimesh.visual.texture import TextureVisuals
 
-from .geometry import REFERENCE_CHIBI, MeshData, ProportionPreset, build_chibi_meshes
+from .geometry import MeshData, build_chibi_meshes
+from .proportions import DEFAULT_PRESET, ProportionSettings, get_builtin_preset
 from .skin_parser import ArmChoice, load_skin
 from .uv_tables import uv_table
 
@@ -150,7 +151,7 @@ def generate_model(
     skin_path: str | Path,
     arm_choice: ArmChoice,
     output_directory: str | Path,
-    proportions: ProportionPreset = REFERENCE_CHIBI,
+    proportions: ProportionSettings | None = None,
 ) -> ExportResult:
     skin = load_skin(skin_path, arm_choice)
     output_dir = Path(output_directory)
@@ -158,10 +159,11 @@ def generate_model(
         raise ValueError("Путь сохранения должен указывать на папку.")
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    settings = proportions or get_builtin_preset(DEFAULT_PRESET)
     meshes = build_chibi_meshes(
         uv_table(skin.arm_width),
         skin.arm_width,
-        proportions,
+        settings,
     )
     output = output_dir / f"{skin.path.stem}_chibi.glb"
     export_glb(meshes, skin.image, output)

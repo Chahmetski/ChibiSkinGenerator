@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QStandardPaths, QThread, Signal, Slot
+from PySide6.QtCore import QObject, QSettings, QStandardPaths, QThread, Signal, Slot
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QComboBox,
@@ -16,13 +16,16 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from . import __version__
 from .exporter import generate_model
-from .geometry import PROPORTION_PRESETS
+from .proportion_editor import ProportionEditor
+from .proportions import ProportionSettings
+from .skin_parser import SkinError, load_skin
 
 
 class GenerationWorker(QObject):
@@ -34,7 +37,7 @@ class GenerationWorker(QObject):
         skin_path: str,
         arm_choice: str,
         output_directory: str,
-        proportions: str,
+        proportions: ProportionSettings,
     ) -> None:
         super().__init__()
         self.skin_path = skin_path
@@ -49,7 +52,7 @@ class GenerationWorker(QObject):
                 self.skin_path,
                 self.arm_choice,  # type: ignore[arg-type]
                 self.output_directory,
-                self.proportions,  # type: ignore[arg-type]
+                self.proportions,
             )
         except Exception as exc:  # Display parser, filesystem and exporter errors uniformly.
             self.failed.emit(str(exc) or exc.__class__.__name__)
@@ -61,7 +64,8 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle(f"Minecraft Skin → Chibi GLB — v{__version__}")
-        self.setMinimumWidth(640)
+        self.setMinimumSize(820, 620)
+        self.resize(1040, 760)
         self._thread: QThread | None = None
         self._worker: GenerationWorker | None = None
 
@@ -72,9 +76,9 @@ class MainWindow(QMainWindow):
 
         self.arm_combo = QComboBox()
         self.arm_combo.addItems(("Auto", "Steve", "Alex"))
-
-        self.proportions_combo = QComboBox()
-        self.proportions_combo.addItems(PROPORTION_PRESETS)
+        self.proportion_editor = ProportionEditor(QSettings())
+        self.arm_combo.currentTextChanged.connect(self._sync_preview_arm_width)
+        self.skin_edit.editingFinished.connect(self._sync_preview_arm_width)
 
         default_output = QStandardPaths.writableLocation(
             QStandardPaths.StandardLocation.DocumentsLocation
@@ -91,7 +95,6 @@ class MainWindow(QMainWindow):
         form = QFormLayout()
         form.addRow("Skin PNG:", self._path_row(self.skin_edit, skin_button))
         form.addRow("Тип рук:", self.arm_combo)
-        form.addRow("Proportions:", self.proportions_combo)
         form.addRow("Папка сохранения:", self._path_row(self.output_edit, output_button))
 
         intro = QLabel(
@@ -100,15 +103,19 @@ class MainWindow(QMainWindow):
         )
         intro.setWordWrap(True)
 
-        layout = QVBoxLayout()
-        layout.addWidget(intro)
-        layout.addLayout(form)
-        layout.addWidget(self.generate_button)
-        layout.addWidget(self.status_label)
+        generator_layout = QVBoxLayout()
+        generator_layout.addWidget(intro)
+        generator_layout.addLayout(form)
+        generator_layout.addWidget(self.generate_button)
+        generator_layout.addWidget(self.status_label)
+        generator_layout.addStretch(1)
 
-        central = QWidget()
-        central.setLayout(layout)
-        self.setCentralWidget(central)
+        generator_tab = QWidget()
+        generator_tab.setLayout(generator_layout)
+        tabs = QTabWidget()
+        tabs.addTab(generator_tab, "Generator")
+        tabs.addTab(self.proportion_editor, "Proportions")
+        self.setCentralWidget(tabs)
 
     @staticmethod
     def _path_row(edit: QLineEdit, button: QPushButton) -> QWidget:
@@ -126,6 +133,21 @@ class MainWindow(QMainWindow):
         )
         if path:
             self.skin_edit.setText(path)
+            self._sync_preview_arm_width()
+
+    @Slot()
+    def _sync_preview_arm_width(self, *_args) -> None:  # type: ignore[no-untyped-def]
+        choice = self.arm_combo.currentText()
+        if choice == "Alex":
+            arm_pixels = 3
+        elif choice == "Steve":
+            arm_pixels = 4
+        else:
+            try:
+                arm_pixels = load_skin(self.skin_edit.text().strip(), "Auto").arm_width
+            except SkinError:
+                arm_pixels = 4
+        self.proportion_editor.set_arm_pixels(arm_pixels)
 
     @Slot()
     def _choose_output(self) -> None:
@@ -153,7 +175,7 @@ class MainWindow(QMainWindow):
             skin_path,
             self.arm_combo.currentText(),
             output_directory,
-            self.proportions_combo.currentText(),
+            self.proportion_editor.settings,
         )
         worker.moveToThread(thread)
         thread.started.connect(worker.run)

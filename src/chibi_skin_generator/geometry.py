@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
 
 import numpy as np
 
+from .proportions import ProportionSettings, calculate_proportions
 from .uv_tables import FACE_NAMES, FaceTable, PartTable
 
 
@@ -36,28 +36,6 @@ class MeshData:
         return matrix
 
 
-@dataclass(frozen=True, slots=True)
-class PartSpec:
-    name: str
-    size: tuple[float, float, float]
-    pivot: tuple[float, float, float]
-    local_center: tuple[float, float, float] = (0.0, 0.0, 0.0)
-    rotation_degrees: float = 0.0
-
-
-# X points toward the character's left, Y points up, Z points forward.
-# The 2.4-unit head makes the silhouette deliberately chibi rather than the
-# standard Minecraft 8:12:12 proportions.
-LEGACY_PARTS = (
-    PartSpec("Head", (2.40, 2.40, 2.40), (0.0, 3.05, 0.0)),
-    PartSpec("Body", (1.55, 1.55, 0.78), (0.0, 1.08, 0.0)),
-    PartSpec("Arm.L", (0.58, 1.45, 0.62), (1.10, 1.12, 0.0)),
-    PartSpec("Arm.R", (0.58, 1.45, 0.62), (-1.10, 1.12, 0.0)),
-    PartSpec("Leg.L", (0.68, 0.90, 0.70), (0.39, -0.15, 0.0)),
-    PartSpec("Leg.R", (0.68, 0.90, 0.70), (-0.39, -0.15, 0.0)),
-)
-
-
 FACE_NORMALS = {
     "top": (0.0, 1.0, 0.0),
     "bottom": (0.0, -1.0, 0.0),
@@ -66,47 +44,6 @@ FACE_NORMALS = {
     "left": (1.0, 0.0, 0.0),
     "back": (0.0, 0.0, -1.0),
 }
-
-REFERENCE_CHIBI = "Reference Chibi"
-LEGACY = "Legacy"
-ProportionPreset = Literal["Reference Chibi", "Legacy"]
-PROPORTION_PRESETS = (REFERENCE_CHIBI, LEGACY)
-
-SHOULDER_OVERLAP = 0.0075
-ARM_ANGLE_DEGREES = 5.0
-REFERENCE_HEAD_OVERLAY_MARGIN = 0.03125
-REFERENCE_PART_OVERLAY_MARGIN = 0.015625
-LEGACY_HEAD_OVERLAY_MARGIN = 0.070
-LEGACY_PART_OVERLAY_MARGIN = 0.025
-
-
-def _reference_parts(arm_width: int) -> tuple[PartSpec, ...]:
-    arm_size = 0.1875 if arm_width == 3 else 0.25
-    body_half_width = 0.5 / 2.0
-    arm_half_width = arm_size / 2.0
-    arm_center_x = body_half_width + arm_half_width - SHOULDER_OVERLAP
-    shoulder_x = arm_center_x - arm_half_width
-
-    return (
-        PartSpec("Head", (1.0, 1.0, 1.0), (0.0, 1.5, 0.0)),
-        PartSpec("Body", (0.5, 0.5, 0.25), (0.0, 0.75, 0.0)),
-        PartSpec(
-            "Arm.L",
-            (arm_size, 0.5, 0.25),
-            (shoulder_x, 1.0, 0.0),
-            (arm_half_width, -0.25, 0.0),
-            ARM_ANGLE_DEGREES,
-        ),
-        PartSpec(
-            "Arm.R",
-            (arm_size, 0.5, 0.25),
-            (-shoulder_x, 1.0, 0.0),
-            (-arm_half_width, -0.25, 0.0),
-            -ARM_ANGLE_DEGREES,
-        ),
-        PartSpec("Leg.L", (0.25, 0.5, 0.25), (0.125, 0.25, 0.0)),
-        PartSpec("Leg.R", (0.25, 0.5, 0.25), (-0.125, 0.25, 0.0)),
-    )
 
 
 def _face_vertices(
@@ -192,54 +129,39 @@ def create_box_mesh(
 def build_chibi_meshes(
     uv_tables: PartTable,
     arm_width: int,
-    proportions: ProportionPreset = REFERENCE_CHIBI,
+    settings: ProportionSettings,
 ) -> list[MeshData]:
-    if arm_width not in (3, 4):
-        raise ValueError("Arm width must be 3 (Alex) or 4 (Steve).")
-    if proportions not in PROPORTION_PRESETS:
-        raise ValueError(f"Unknown proportions preset: {proportions}")
-
-    if proportions == REFERENCE_CHIBI:
-        parts = _reference_parts(arm_width)
-        head_overlay_margin = REFERENCE_HEAD_OVERLAY_MARGIN
-        part_overlay_margin = REFERENCE_PART_OVERLAY_MARGIN
-    else:
-        parts = LEGACY_PARTS
-        head_overlay_margin = LEGACY_HEAD_OVERLAY_MARGIN
-        part_overlay_margin = LEGACY_PART_OVERLAY_MARGIN
+    layout = calculate_proportions(settings, arm_width)
 
     meshes: list[MeshData] = []
-    for spec in parts:
-        size = spec.size
-        if proportions == LEGACY and spec.name.startswith("Arm") and arm_width == 3:
-            size = (size[0] * 0.78, size[1], size[2])
-
+    for part in layout.parts:
         meshes.append(
             create_box_mesh(
-                spec.name,
-                size,
-                spec.pivot,
-                uv_tables[spec.name],
-                local_center=spec.local_center,
-                rotation_degrees=spec.rotation_degrees,
+                part.name,
+                part.size,
+                part.pivot,
+                uv_tables[part.name],
+                local_center=part.local_center,
+                rotation_degrees=part.rotation_degrees,
             )
         )
 
         overlay_name = (
-            "Head_Overlay" if spec.name == "Head" else
-            "Body_Overlay" if spec.name == "Body" else
-            spec.name.replace("Arm.", "Arm_Overlay.").replace("Leg.", "Leg_Overlay.")
+            "Head_Overlay" if part.name == "Head" else
+            "Body_Overlay" if part.name == "Body" else
+            part.name.replace("Arm.", "Arm_Overlay.").replace("Leg.", "Leg_Overlay.")
         )
-        overlay_margin = head_overlay_margin if spec.name == "Head" else part_overlay_margin
-        overlay_size = tuple(dimension + 2.0 * overlay_margin for dimension in size)
+        overlay_size = tuple(
+            dimension + 2.0 * part.overlay_offset for dimension in part.size
+        )
         meshes.append(
             create_box_mesh(
                 overlay_name,
                 overlay_size,
-                spec.pivot,
+                part.pivot,
                 uv_tables[overlay_name],
-                local_center=spec.local_center,
-                rotation_degrees=spec.rotation_degrees,
+                local_center=part.local_center,
+                rotation_degrees=part.rotation_degrees,
                 is_overlay=True,
             )
         )

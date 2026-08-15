@@ -9,6 +9,7 @@ import pytest
 from PIL import Image
 
 from chibi_skin_generator.exporter import JSON_CHUNK, generate_model
+from chibi_skin_generator.proportions import builtin_preset_names, get_builtin_preset
 
 
 EXPECTED_OBJECTS = {
@@ -221,3 +222,28 @@ def test_exported_glb_has_named_meshes_and_embedded_pixel_texture(tmp_path: Path
     assert all(sampler["minFilter"] == 9728 for sampler in document["samplers"])
     assert all(sampler["wrapS"] == 33071 for sampler in document["samplers"])
     assert all(sampler["wrapT"] == 33071 for sampler in document["samplers"])
+
+
+@pytest.mark.parametrize("preset_name", builtin_preset_names())
+def test_every_builtin_preset_exports_valid_twelve_mesh_glb(
+    tmp_path: Path, preset_name: str
+) -> None:
+    skin_path = tmp_path / f"{preset_name.replace(' ', '_')}.png"
+    _write_test_skin(skin_path)
+    result = generate_model(
+        skin_path,
+        "Steve",
+        tmp_path / "exports",
+        get_builtin_preset(preset_name),
+    )
+    document, _ = _glb_chunks(result.output_path.read_bytes())
+    assert len(document["meshes"]) == 12
+    assert {mesh["name"] for mesh in document["meshes"]} == EXPECTED_OBJECTS
+    assert {material["name"] for material in document["materials"]} == {
+        "MinecraftSkin_Base",
+        "MinecraftSkin_Overlay",
+    }
+    for mesh in document["meshes"]:
+        primitive = mesh["primitives"][0]
+        assert "NORMAL" in primitive["attributes"]
+        assert "indices" in primitive
