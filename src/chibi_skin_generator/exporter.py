@@ -6,6 +6,7 @@ import json
 import struct
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterable
 
 import numpy as np
 import trimesh
@@ -14,6 +15,12 @@ from trimesh.exchange.gltf import export_glb as trimesh_export_glb
 from trimesh.visual.material import PBRMaterial
 from trimesh.visual.texture import TextureVisuals
 
+from .animations import (
+    HIPS_TRANSLATION_CLIPS,
+    AnimationClip,
+    build_animation_clips,
+    matrix_quaternion,
+)
 from .geometry import MeshData, build_chibi_meshes
 from .proportions import DEFAULT_PRESET, ProportionSettings, get_builtin_preset
 from .rig import (
@@ -34,12 +41,17 @@ NEAREST = 9728
 CLAMP_TO_EDGE = 33071
 FLOAT = 5126
 UNSIGNED_BYTE = 5121
+PIXEL_UNLIT = "Pixel Unlit"
+PBR_LIT = "PBR Lit"
+MATERIAL_MODES = (PIXEL_UNLIT, PBR_LIT)
+UNLIT_EXTENSION = "KHR_materials_unlit"
 
 
 @dataclass(frozen=True, slots=True)
 class ExportResult:
     output_path: Path
     arm_model: str
+    animations: tuple[str, ...]
 
 
 def _materials(image: Image.Image) -> tuple[PBRMaterial, PBRMaterial]:
@@ -156,6 +168,31 @@ def _pixel_sampler(document: dict) -> None:
         texture["sampler"] = texture.get("sampler", 0)
 
 
+def _material_mode(document: dict, material_mode: str) -> None:
+    if material_mode not in MATERIAL_MODES:
+        raise ValueError(f"Неизвестный режим материала: {material_mode}")
+
+    extensions_used = document.setdefault("extensionsUsed", [])
+    if material_mode == PIXEL_UNLIT:
+        if UNLIT_EXTENSION not in extensions_used:
+            extensions_used.append(UNLIT_EXTENSION)
+        for material in document.get("materials", []):
+            material.setdefault("extensions", {})[UNLIT_EXTENSION] = {}
+        return
+
+    if UNLIT_EXTENSION in extensions_used:
+        extensions_used.remove(UNLIT_EXTENSION)
+    if not extensions_used:
+        document.pop("extensionsUsed", None)
+    for material in document.get("materials", []):
+        extensions = material.get("extensions")
+        if not extensions:
+            continue
+        extensions.pop(UNLIT_EXTENSION, None)
+        if not extensions:
+            material.pop("extensions", None)
+
+
 def _append_accessor(
     document: dict,
     binary: bytearray,
@@ -164,6 +201,8 @@ def _append_accessor(
     component_type: int,
     accessor_type: str,
     count: int,
+    minimum: list[float] | None = None,
+    maximum: list[float] | None = None,
 ) -> int:
     binary.extend(b"\x00" * ((-len(binary)) % 4))
     byte_offset = len(binary)
@@ -173,26 +212,111 @@ def _append_accessor(
         {"buffer": 0, "byteOffset": byte_offset, "byteLength": len(payload)}
     )
     accessor_index = len(document.setdefault("accessors", []))
-    document["accessors"].append(
-        {
-            "bufferView": view_index,
-            "componentType": component_type,
-            "count": count,
-            "type": accessor_type,
-        }
-    )
+    accessor = {
+        "bufferView": view_index,
+        "componentType": component_type,
+        "count": count,
+        "type": accessor_type,
+    }
+    if minimum is not None:
+        accessor["min"] = minimum
+    if maximum is not None:
+        accessor["max"] = maximum
+    document["accessors"].append(accessor)
     return accessor_index
 
 
-def _matrix_to_gltf(matrix: np.ndarray) -> list[float]:
-    """glTF matrices are serialized column-major."""
-    return np.asarray(matrix, dtype=np.float64).T.reshape(-1).tolist()
+def _joint_node(name: str, local_matrix: np.ndarray) -> dict:
+    translation_value = np.asarray(local_matrix, dtype=np.float64)[:3, 3]
+    rotation_value = matrix_quaternion(local_matrix)
+    return {
+        "name": name,
+        "translation": translation_value.tolist(),
+        "rotation": rotation_value.tolist(),
+    }
+
+
+def _add_animations(
+    document: dict,
+    binary: bytearray,
+    clips: tuple[AnimationClip, ...],
+    joint_node_indices: list[int],
+) -> None:
+    if not clips:
+        document.pop("animations", None)
+        return
+    node_by_joint = dict(zip(JOINT_ORDER, joint_node_indices, strict=True))
+    animations = []
+    for clip in clips:
+        time_values = clip.tracks[0].times.astype("<f4")
+        time_accessor = _append_accessor(
+            document,
+            binary,
+            time_values.tobytes(),
+            component_type=FLOAT,
+            accessor_type="SCALAR",
+            count=len(time_values),
+            minimum=[float(time_values[0])],
+            maximum=[float(time_values[-1])],
+        )
+        samplers = []
+        channels = []
+        for track in clip.tracks:
+            if not np.array_equal(track.times, clip.tracks[0].times):
+                raise ValueError(f"Animation {clip.name} has inconsistent track times.")
+            if track.path == "rotation":
+                accessor_type = "VEC4"
+            elif (
+                track.path == "translation"
+                and clip.name in HIPS_TRANSLATION_CLIPS
+                and track.joint_name == "Hips"
+            ):
+                accessor_type = "VEC3"
+            else:
+                raise ValueError(
+                    f"Unsupported animation target: {clip.name}/{track.joint_name}/{track.path}"
+                )
+            output_accessor = _append_accessor(
+                document,
+                binary,
+                track.values.astype("<f4").tobytes(),
+                component_type=FLOAT,
+                accessor_type=accessor_type,
+                count=len(track.values),
+            )
+            sampler_index = len(samplers)
+            samplers.append(
+                {
+                    "input": time_accessor,
+                    "output": output_accessor,
+                    "interpolation": "LINEAR",
+                }
+            )
+            channels.append(
+                {
+                    "sampler": sampler_index,
+                    "target": {
+                        "node": node_by_joint[track.joint_name],
+                        "path": track.path,
+                    },
+                }
+            )
+        animations.append(
+            {
+                "name": clip.name,
+                "samplers": samplers,
+                "channels": channels,
+                "extras": dict(clip.extras),
+            }
+        )
+    document["animations"] = animations
 
 
 def _add_skinning(
     document: dict,
     binary: bytearray,
     skeleton: Skeleton,
+    animation_clips: tuple[AnimationClip, ...],
     *,
     diagnostic_pose: bool,
 ) -> None:
@@ -249,7 +373,7 @@ def _add_skinning(
     first_joint_node = len(document["nodes"])
     joint_nodes = []
     for index, joint in enumerate(skeleton.joints):
-        node = {"name": joint.name, "matrix": _matrix_to_gltf(local_matrices[index])}
+        node = _joint_node(joint.name, local_matrices[index])
         children = [
             first_joint_node + child_index
             for child_index, candidate in enumerate(skeleton.joints)
@@ -275,12 +399,27 @@ def _add_skinning(
             "skeleton": first_joint_node,
         }
     ]
+    _add_animations(document, binary, animation_clips, joint_indices)
 
 
-def _finalize_glb(blob: bytes, skeleton: Skeleton, *, diagnostic_pose: bool) -> bytes:
+def _finalize_glb(
+    blob: bytes,
+    skeleton: Skeleton,
+    animation_clips: tuple[AnimationClip, ...],
+    material_mode: str,
+    *,
+    diagnostic_pose: bool,
+) -> bytes:
     document, binary = _read_glb(blob)
     _pixel_sampler(document)
-    _add_skinning(document, binary, skeleton, diagnostic_pose=diagnostic_pose)
+    _material_mode(document, material_mode)
+    _add_skinning(
+        document,
+        binary,
+        skeleton,
+        animation_clips,
+        diagnostic_pose=diagnostic_pose,
+    )
     return _write_glb(document, binary)
 
 
@@ -289,15 +428,23 @@ def export_glb(
     image: Image.Image,
     output_path: str | Path,
     skeleton: Skeleton,
+    animation_clips: tuple[AnimationClip, ...] = (),
     *,
     diagnostic_pose: bool = False,
+    material_mode: str = PIXEL_UNLIT,
 ) -> Path:
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     blob = trimesh_export_glb(_scene(meshes, image), include_normals=True)
     if not isinstance(blob, bytes):
         raise TypeError("GLB exporter did not return binary data")
-    blob = _finalize_glb(blob, skeleton, diagnostic_pose=diagnostic_pose)
+    blob = _finalize_glb(
+        blob,
+        skeleton,
+        animation_clips,
+        material_mode,
+        diagnostic_pose=diagnostic_pose,
+    )
 
     temporary = output.with_suffix(output.suffix + ".tmp")
     try:
@@ -314,6 +461,11 @@ def generate_model(
     arm_choice: ArmChoice,
     output_directory: str | Path,
     proportions: ProportionSettings | None = None,
+    *,
+    include_idle: bool = True,
+    include_walk: bool = True,
+    animation_names: Iterable[str] | None = None,
+    material_mode: str = PIXEL_UNLIT,
 ) -> ExportResult:
     skin = load_skin(skin_path, arm_choice)
     output_dir = Path(output_directory)
@@ -328,9 +480,27 @@ def generate_model(
         settings,
     )
     skeleton = build_skeleton(settings, skin.arm_width)
+    animation_clips = build_animation_clips(
+        skeleton,
+        include_idle=include_idle,
+        include_walk=include_walk,
+        animation_names=animation_names,
+        meshes=meshes,
+    )
     output = output_dir / f"{skin.path.stem}_chibi.glb"
-    export_glb(meshes, skin.image, output, skeleton)
-    return ExportResult(output.resolve(), skin.arm_model)
+    export_glb(
+        meshes,
+        skin.image,
+        output,
+        skeleton,
+        animation_clips,
+        material_mode=material_mode,
+    )
+    return ExportResult(
+        output.resolve(),
+        skin.arm_model,
+        tuple(clip.name for clip in animation_clips),
+    )
 
 
 def generate_diagnostic_model(
@@ -350,4 +520,4 @@ def generate_diagnostic_model(
     skeleton = build_skeleton(settings, skin.arm_width)
     output = output_dir / f"{skin.path.stem}_chibi_rig_test.glb"
     export_glb(meshes, skin.image, output, skeleton, diagnostic_pose=True)
-    return ExportResult(output.resolve(), skin.arm_model)
+    return ExportResult(output.resolve(), skin.arm_model, ())

@@ -28,7 +28,9 @@ def main() -> None:
     pixels[0:16, 32:64, 3] = 0
     Image.fromarray(pixels, "RGBA").save(skin_path)
 
-    rest = generate_model(skin_path, "Steve", output)
+    rest = generate_model(
+        skin_path, "Steve", output, include_idle=False, include_walk=False
+    )
     diagnostic = generate_diagnostic_model(skin_path, "Steve", output)
     print(rest.output_path)
     print(diagnostic.output_path)

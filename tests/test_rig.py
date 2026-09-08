@@ -85,7 +85,13 @@ def _matrices(values: np.ndarray) -> np.ndarray:
 def _node_matrix(node: dict) -> np.ndarray:
     if "matrix" in node:
         return np.asarray(node["matrix"], dtype=np.float64).reshape(4, 4).T
+    x, y, z, w = node.get("rotation", (0.0, 0.0, 0.0, 1.0))
     matrix = np.eye(4)
+    matrix[:3, :3] = (
+        (1.0 - 2.0 * (y * y + z * z), 2.0 * (x * y - z * w), 2.0 * (x * z + y * w)),
+        (2.0 * (x * y + z * w), 1.0 - 2.0 * (x * x + z * z), 2.0 * (y * z - x * w)),
+        (2.0 * (x * z - y * w), 2.0 * (y * z + x * w), 1.0 - 2.0 * (x * x + y * y)),
+    )
     matrix[:3, 3] = node.get("translation", (0.0, 0.0, 0.0))
     return matrix
 

@@ -3,7 +3,7 @@
 ## Scope
 
 - Build a standalone offline Windows desktop application that converts a standard 64x64 Minecraft skin PNG into an editable chibi-style GLB model.
-- The current scope is MVP version 0.5.0 with one genuine glTF skin and a stable twelve-joint skeleton.
+- The current scope is version 0.8.0 with one genuine glTF skin, a stable twelve-joint skeleton, and the optional 15-clip core combat pack.
 - The application is not a Blender add-on or Unity project. Do not use the Blender API.
 
 ## Required technology
@@ -52,6 +52,7 @@
 - Overlay layers must be separate real geometry, slightly expanded relative to the matching base part.
 - Base meshes use only the opaque, single-sided `MinecraftSkin_Base` material.
 - Overlay meshes use only the alpha-mask, single-sided `MinecraftSkin_Overlay` material with cutoff 0.5; never use alpha blending.
+- Material mode defaults to `Pixel Unlit` using `KHR_materials_unlit`; `PBR Lit` keeps the previous PBR behavior without that extension.
 - Export explicit flat outward normals and counter-clockwise front-facing triangle winding.
 - Use half-texel-inset UV coordinates and nearest/clamp texture sampling.
 - Default to `Compact Chibi`: a 1-unit head and a 2-unit total base height. Keep the previous export dimensions available as `Legacy`.
@@ -62,7 +63,8 @@
 - The proportions UI uses linked sliders/spin boxes, JSON user presets, QSettings session persistence, and only a lightweight 2D schematic preview.
 - Do not generate geometry per opaque pixel in this MVP.
 - Export exactly one glTF skin with a stable 12-joint hierarchy, inverse bind matrices, and hard per-part vertex weights.
-- Do not add production animations, elbows, knees, rounded geometry, volumetric hair, 3D preview, `.blend` export, or executable packaging.
+- Only SitIdle, WeaponIdle, Aim, AttackHeavySide, and Death may animate Hips translation. All other clips animate joint rotation only. Never animate Root translation or any scale, add root motion, weapon geometry, or weapon bones.
+- Do not add elbows, knees, rounded geometry, volumetric hair, 3D preview, `.blend` export, or executable packaging.
 
 ## UI rules
 

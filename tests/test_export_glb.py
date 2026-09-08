@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from chibi_skin_generator.exporter import JSON_CHUNK, generate_model
+from chibi_skin_generator.exporter import JSON_CHUNK, PBR_LIT, generate_model
 from chibi_skin_generator.proportions import builtin_preset_names, get_builtin_preset
 
 
@@ -140,6 +140,15 @@ def test_exported_glb_has_named_meshes_and_embedded_pixel_texture(tmp_path: Path
     assert overlay_material["alphaCutoff"] == 0.5
     assert overlay_material.get("doubleSided", False) is False
     assert all(material.get("alphaMode", "OPAQUE") != "BLEND" for material in materials)
+    assert document["extensionsUsed"] == ["KHR_materials_unlit"]
+    assert all(
+        material["extensions"]["KHR_materials_unlit"] == {}
+        for material in materials
+    )
+    for material in materials:
+        pbr = material["pbrMetallicRoughness"]
+        assert "baseColorTexture" in pbr
+        assert pbr["metallicFactor"] == 0.0
 
     material_names = {index: material["name"] for index, material in enumerate(materials)}
     mesh_by_name = {mesh["name"]: mesh for mesh in document["meshes"]}
@@ -231,6 +240,33 @@ def test_exported_glb_has_named_meshes_and_embedded_pixel_texture(tmp_path: Path
     assert all(sampler["minFilter"] == 9728 for sampler in document["samplers"])
     assert all(sampler["wrapS"] == 33071 for sampler in document["samplers"])
     assert all(sampler["wrapT"] == 33071 for sampler in document["samplers"])
+
+
+def test_pbr_lit_omits_unlit_extension_and_preserves_material_settings(
+    tmp_path: Path,
+) -> None:
+    skin_path = tmp_path / "pbr_skin.png"
+    _write_test_skin(skin_path)
+    result = generate_model(
+        skin_path,
+        "Steve",
+        tmp_path / "pbr_output",
+        material_mode=PBR_LIT,
+    )
+    document, _ = _glb_chunks(result.output_path.read_bytes())
+    assert "KHR_materials_unlit" not in document.get("extensionsUsed", [])
+    for material in document["materials"]:
+        assert "KHR_materials_unlit" not in material.get("extensions", {})
+        pbr = material["pbrMetallicRoughness"]
+        assert "baseColorTexture" in pbr
+        assert pbr["metallicFactor"] == 0.0
+        assert material.get("doubleSided", False) is False
+    by_name = {material["name"]: material for material in document["materials"]}
+    assert by_name["MinecraftSkin_Base"]["alphaMode"] == "OPAQUE"
+    assert by_name["MinecraftSkin_Overlay"]["alphaMode"] == "MASK"
+    assert by_name["MinecraftSkin_Overlay"]["alphaCutoff"] == 0.5
+    assert all(sampler["magFilter"] == 9728 for sampler in document["samplers"])
+    assert all(sampler["minFilter"] == 9728 for sampler in document["samplers"])
 
 
 @pytest.mark.parametrize("preset_name", builtin_preset_names())
