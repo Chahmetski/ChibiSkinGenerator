@@ -1,35 +1,29 @@
-# Chibi Skin Generator 0.8.0 — English Windows portable
+# Chibi Skin Generator 0.8.0 — English / Russian
 
-The Windows portable release now uses an English interface throughout:
-buttons, tabs, settings, tooltips, file dialogs, validation errors and export
-messages. Existing settings and user presets are preserved.
+- Switch between English and Russian in the Language selector; the choice is saved.
+- Live translation of controls, messages, Qt dialogs and validation errors.
+- Existing presets, paths, proportions and animation selections are preserved.
+- English README; promotional cover and slogan removed.
+- LGPL notices, license texts, a Licenses button and matching dependency sources.
+- Optional QML/PDF and GPL-only virtual keyboard binaries excluded from this desktop build.
 
-## Download and run
+## Download
 
-Download `ChibiSkinGenerator-0.8.0-Windows-x64-English.zip`, extract it completely,
-and run `ChibiSkinGenerator.exe`. Keep `_internal/` beside the executable.
-No Python installation is required. The application works offline.
+Extract `ChibiSkinGenerator-0.8.0-Windows-x64-EN-RU.zip` completely and run
+`ChibiSkinGenerator.exe`. Keep `_internal/` beside the EXE. Python and Blender
+are not required to generate models. The program runs offline.
 
-The ZIP includes an English user guide and third-party license notices.
-
-## Features
-
-- Standard Minecraft PNG 64×64 input, Steve / Alex / Auto.
-- Base and overlay layers, 12 editable meshes, one 12-joint glTF skin.
-- Fifteen optional in-place animation clips.
-- Four proportion presets, linked controls and JSON user presets.
-- Embedded PNG texture; nearest sampling; Pixel Unlit or PBR Lit.
-- Existing exports are preserved through numbered filenames.
+`Qt-LGPL-Sources-6.11.1.zip` contains the unmodified QtBase, Qt translations,
+PySide6 and Shiboken sources. It is a dependency source bundle, not a program
+installer. Redistributors must preserve equivalent source access and notices.
+Both archives have SHA-256 checksums.
 
 ## Validation
 
-144 automated tests passed. The packaged EXE was checked for English labels
-and locale, interface startup, PNG preview and GLB export with 12 meshes,
-one skin, 12 joints and 15 animations. SHA-256 is supplied alongside the ZIP.
+148 tests passed. The packaged executable was checked for switching between
+both languages, GUI startup, PNG preview and export of 12 meshes, one skin,
+12 joints and 15 animation clips.
 
-## Limits
-
-Only 64×64 PNG skins. No elbows, knees, weapons or root motion.
-Auto arm detection is heuristic. Walk/Run are rotation-only; physical foot
-placement is limited by the rigid cuboid limbs. Animation transitions and
-character movement are controlled by the consuming game.
+Only standard 64×64 PNG skins. No elbows, knees, weapons or root motion.
+Auto arm detection is heuristic. Walk/Run remain rotation-only. Animation
+transitions and game movement are controlled by the consuming game.

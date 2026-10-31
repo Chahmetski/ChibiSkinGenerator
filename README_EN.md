@@ -1,8 +1,8 @@
 # Chibi Skin Generator — Windows portable
 
 Convert a standard 64×64 Minecraft skin PNG into an editable chibi GLB model.
-The application and all built-in messages are in English. No language selector
-is required. It runs completely offline.
+Use the Language selector to switch between English and Russian. The choice
+is saved between launches. It runs completely offline.
 
 ## Start
 

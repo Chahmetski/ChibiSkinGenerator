@@ -9,5 +9,7 @@ if not exist ".venv\Scripts\python.exe" (
 if errorlevel 1 exit /b 1
 ".venv\Scripts\python.exe" -m pip install -r requirements-build.txt
 if errorlevel 1 exit /b 1
+".venv\Scripts\python.exe" tools\prepare_qt_sources.py
+if errorlevel 1 exit /b 1
 ".venv\Scripts\python.exe" tools\build_windows.py
 exit /b %errorlevel%

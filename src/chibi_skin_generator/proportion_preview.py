@@ -8,6 +8,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPen, QPolygonF
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
+from .i18n import tr, set_text
 from .proportions import PartPlacement, ProportionSettings, calculate_proportions
 
 
@@ -72,12 +73,8 @@ class ProportionPreview(QWidget):
 
         painter.setFont(QFont("Segoe UI", 9))
         painter.setPen(QColor("#dbe4f0"))
-        painter.drawText(QRectF(margin, 8, view_width, 24), Qt.AlignmentFlag.AlignCenter, "Front")
-        painter.drawText(
-            QRectF(margin * 2 + view_width, 8, view_width, 24),
-            Qt.AlignmentFlag.AlignCenter,
-            "Side",
-        )
+        painter.drawText(QRectF(margin, 8, view_width, 24), Qt.AlignmentFlag.AlignCenter, tr('Front'))
+        painter.drawText(QRectF(margin * 2 + view_width, 8, view_width, 24), Qt.AlignmentFlag.AlignCenter, tr('Side'))
 
         ground_pen = QPen(QColor("#778397"), 1.0, Qt.PenStyle.DashLine)
         painter.setPen(ground_pen)
@@ -106,13 +103,8 @@ class ProportionPreview(QWidget):
             painter.drawEllipse(QPointF(front_center + x * scale, ground_y - y * scale), 3.0, 3.0)
 
         painter.setPen(QColor("#dbe4f0"))
-        painter.drawText(QRectF(0, self.height()-54, self.width(), 22),
-                         Qt.AlignmentFlag.AlignCenter, "Head · body · arms · legs; red dots mark joints")
-        painter.drawText(
-            QRectF(0, self.height() - 30, self.width(), 22),
-            Qt.AlignmentFlag.AlignCenter,
-            f"Height: {layout.total_height:.3f}",
-        )
+        painter.drawText(QRectF(0, self.height() - 54, self.width(), 22), Qt.AlignmentFlag.AlignCenter, tr('Head · body · arms · legs; red dots mark joints'))
+        painter.drawText(QRectF(0, self.height() - 30, self.width(), 22), Qt.AlignmentFlag.AlignCenter, tr(f'Height: {layout.total_height:.3f}'))
 
     def _draw_part(
         self,

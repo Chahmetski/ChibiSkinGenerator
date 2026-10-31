@@ -17,15 +17,30 @@ from chibi_skin_generator import __version__
 def main() -> None:
     if sys.version_info[:3] != (3, 11, 9) or sys.platform != "win32":
         raise SystemExit("Build requires Windows and Python 3.11.9.")
+    from PySide6.QtCore import QLibraryInfo
+    russian_qt = Path(QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)) / "qtbase_ru.qm"
     command = [sys.executable, "-m", "PyInstaller", "--noconfirm",
         "--windowed", "--onedir", "--noupx", "--name", "ChibiSkinGenerator",
         "--paths", str(ROOT / "src"), "--exclude-module", "pytest",
         "--collect-data", "trimesh", "--distpath", str(ROOT / "dist"),
+        "--add-data", str(ROOT / "src/chibi_skin_generator/translations_ru.json") + ";chibi_skin_generator",
+        "--add-data", str(russian_qt) + ";chibi_skin_generator",
         "--workpath", str(ROOT / "build"), "--specpath", str(ROOT / "build"),
         str(ROOT / "launch.py")]
     if "--package-only" not in sys.argv:
         subprocess.run(command, cwd=ROOT, check=True)
     folder = ROOT / "dist" / "ChibiSkinGenerator"
+    # This desktop PNG tool needs QtBase only. Do not ship incidental QML,
+    # PDF or GPL-only virtual-keyboard plugins discovered by the QtGui hook.
+    qt = folder / "_internal" / "PySide6"
+    allowed_dlls = {"qt6core.dll", "qt6gui.dll", "qt6widgets.dll", "qt6network.dll"}
+    for path in qt.glob("Qt6*.dll"):
+        if path.name.lower() not in allowed_dlls:
+            path.unlink()
+    allowed_plugins = {"qwindows.dll", "qoffscreen.dll", "qminimal.dll", "qmodernwindowsstyle.dll"}
+    for path in (qt / "plugins").rglob("*.dll"):
+        if path.name.lower() not in allowed_plugins:
+            path.unlink()
     # Qt 6.11 uses Windows' built-in ICU. A generic ICU found on the build
     # machine's PATH has incompatible exports and must not shadow the OS DLL.
     for name in ("icuuc.dll", "icudt78.dll"):
@@ -37,6 +52,9 @@ def main() -> None:
     # Preserve dependency notices alongside their binaries.
     licenses = folder / "licenses"
     licenses.mkdir(exist_ok=True)
+    if not (ROOT / "licenses" / "Qt-6.11.1").is_dir():
+        raise SystemExit("Run tools/prepare_qt_sources.py before packaging.")
+    shutil.copytree(ROOT / "licenses", licenses, dirs_exist_ok=True)
     python_license = Path(sys.base_prefix) / "LICENSE.txt"
     if python_license.is_file():
         (licenses / "CPython").mkdir(exist_ok=True)
@@ -61,7 +79,7 @@ def main() -> None:
     report = json.loads((report_dir / "report.json").read_text(encoding="utf-8"))
     if completed.returncode or not report.get("ok"):
         raise SystemExit(f"Frozen smoke test failed: {report}")
-    archive = ROOT / "dist" / f"ChibiSkinGenerator-{__version__}-Windows-x64-English.zip"
+    archive = ROOT / "dist" / f"ChibiSkinGenerator-{__version__}-Windows-x64-EN-RU.zip"
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
         for file in sorted(folder.rglob("*")):
             if file.is_file():

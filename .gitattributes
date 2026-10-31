@@ -3,3 +3,4 @@
 *.png binary
 *.gif binary
 *.zip binary
+licenses/** -text -whitespace

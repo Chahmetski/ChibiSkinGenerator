@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from .preset_storage import PresetError, PresetStorage
 from .proportion_preview import ProportionPreview
+from .i18n import tr, set_text
 from .proportions import (
     COMPACT_CHIBI,
     DEFAULT_PRESET,
@@ -190,7 +191,7 @@ class ProportionEditor(QWidget):
                 user_names = self.storage.list_names()
             except (PresetError, OSError) as exc:
                 user_names = []
-                QMessageBox.warning(self, "Preset Error", str(exc))
+                QMessageBox.warning(self, tr('Preset Error'), tr(str(exc)))
             for name in user_names:
                 self.preset_combo.addItem(name, "user")
             self.preset_combo.insertSeparator(self.preset_combo.count())
@@ -222,7 +223,7 @@ class ProportionEditor(QWidget):
         try:
             self._settings = self._settings.changed(**{field_name: value})
         except ProportionError as exc:
-            QMessageBox.warning(self, "Invalid Value", str(exc))
+            QMessageBox.warning(self, tr('Invalid Value'), tr(str(exc)))
             return
         with QSignalBlocker(self.preset_combo):
             self.preset_combo.setCurrentIndex(self.preset_combo.findText(CUSTOM))
@@ -243,18 +244,18 @@ class ProportionEditor(QWidget):
                 self._update_delete_button()
                 return
         except (PresetError, ProportionError, OSError) as exc:
-            QMessageBox.critical(self, "Preset Error", str(exc))
+            QMessageBox.critical(self, tr('Preset Error'), tr(str(exc)))
             return
         self._apply_settings(settings, name)
 
     def _save_preset(self) -> None:
-        name, accepted = QInputDialog.getText(self, "Save Preset", "Preset name:")
+        name, accepted = QInputDialog.getText(self, tr('Save Preset'), tr('Preset name:'))
         if not accepted:
             return
         try:
             preset = self.storage.save(name, self._settings)
         except (PresetError, OSError) as exc:
-            QMessageBox.critical(self, "Save Error", str(exc))
+            QMessageBox.critical(self, tr('Save Error'), tr(str(exc)))
             return
         self._reload_preset_names(preset.name)
         self._apply_settings(preset.settings, preset.name)
@@ -266,7 +267,7 @@ class ProportionEditor(QWidget):
         try:
             self.storage.delete(name)
         except (PresetError, OSError) as exc:
-            QMessageBox.critical(self, "Delete Error", str(exc))
+            QMessageBox.critical(self, tr('Delete Error'), tr(str(exc)))
             return
         self._reload_preset_names(COMPACT_CHIBI)
         self._apply_settings(get_builtin_preset(COMPACT_CHIBI), COMPACT_CHIBI)
@@ -280,7 +281,7 @@ class ProportionEditor(QWidget):
             try:
                 preset = self.storage.load(name)
             except (PresetError, OSError) as exc:
-                QMessageBox.critical(self, "Preset Error", str(exc))
+                QMessageBox.critical(self, tr('Preset Error'), tr(str(exc)))
                 return
             self._apply_settings(preset.settings, preset.name)
         else:

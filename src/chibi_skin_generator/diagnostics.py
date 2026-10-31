@@ -20,7 +20,14 @@ def run(directory: str) -> int:
         app = QApplication.instance() or QApplication([])
         app.setOrganizationName("ChibiSkinGenerator")
         app.setApplicationName("ChibiSkinGenerator")
-        window = MainWindow(QSettings(str(output / "isolated.ini"), QSettings.Format.IniFormat))
+        settings = QSettings(str(output / "isolated.ini"), QSettings.Format.IniFormat)
+        settings.setValue("session/language", "en")
+        window = MainWindow(settings)
+        assert window.generate_button.text() == "Generate GLB"
+        window.language_combo.setCurrentIndex(1)
+        assert window.generate_button.text() == "\u0421\u043e\u0437\u0434\u0430\u0442\u044c GLB"
+        window.language_combo.setCurrentIndex(0)
+        assert window.generate_button.text() == "Generate GLB"
         skin = output / "generated_skin.png"
         Image.new("RGBA", (64, 64), (90, 150, 210, 255)).save(skin)
         window.skin_edit.setText(str(skin))
@@ -36,7 +43,7 @@ def run(directory: str) -> int:
         assert len(document["animations"]) == 15
         assert not window.skin_thumbnail.pixmap().isNull()
         window.close()
-        report.update(ok=True, meshes=12, skins=1, joints=12, animations=15,
+        report.update(ok=True, languages=["en", "ru"], meshes=12, skins=1, joints=12, animations=15,
                       output=str(result.output_path))
     except Exception:
         report["error"] = traceback.format_exc()

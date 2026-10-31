@@ -30,6 +30,7 @@ from . import __version__
 from .animations import ANIMATION_NAMES, CLIP_DURATIONS, LOOP_CLIP_NAMES
 from .exporter import MATERIAL_MODES, PIXEL_UNLIT, generate_model
 from .proportion_editor import ProportionEditor
+from .i18n import tr, set_text, set_language, apply_to_window
 from .proportions import ProportionSettings
 from .skin_parser import SkinError, load_skin
 
@@ -77,7 +78,7 @@ class GenerationWorker(QObject):
 class MainWindow(QMainWindow):
     def __init__(self, settings: QSettings | None = None) -> None:
         super().__init__()
-        QLocale.setDefault(QLocale("en_US"))
+        set_language("en")
         self.setLocale(QLocale("en_US"))
         self.setWindowTitle(f"Minecraft Skin → Chibi GLB — v{__version__}")
         self.setMinimumSize(820, 620)
@@ -86,11 +87,16 @@ class MainWindow(QMainWindow):
         self._worker: GenerationWorker | None = None
         self._settings = settings or QSettings()
         self._last_output: Path | None = None
+        self.language_combo = QComboBox()
+        self.language_combo.addItem("English", "en")
+        self.language_combo.addItem("Русский", "ru")
+        saved_language = self._settings.value("session/language", "en", type=str)
+        self.language_combo.setCurrentIndex(1 if saved_language == "ru" else 0)
         self.setAcceptDrops(True)
         self._settings.remove(self._animation_setting_key("AttackOverhead2H"))
 
         self.skin_edit = QLineEdit()
-        self.skin_edit.setText(self._settings.value("session/skin", "", type=str))
+        set_text(self.skin_edit, self._settings.value('session/skin', '', type=str))
         self.skin_edit.textChanged.connect(lambda value: self._settings.setValue("session/skin", value))
         self.skin_edit.setPlaceholderText("Select a 64×64 skin.png file")
         skin_button = QPushButton("Browse…")
@@ -198,6 +204,14 @@ class MainWindow(QMainWindow):
         animation_layout.addWidget(animation_scroll)
 
         form = QFormLayout()
+        language_row = QWidget()
+        language_layout = QHBoxLayout(language_row)
+        language_layout.setContentsMargins(0, 0, 0, 0)
+        language_layout.addWidget(self.language_combo, 1)
+        self.licenses_button = QPushButton("Licenses")
+        self.licenses_button.clicked.connect(self._show_licenses)
+        language_layout.addWidget(self.licenses_button)
+        form.addRow("Language:", language_row)
         form.addRow("Skin PNG:", self._path_row(self.skin_edit, skin_button))
         form.addRow("Arm type:", self.arm_combo)
         form.addRow("Material:", self.material_combo)
@@ -231,6 +245,15 @@ class MainWindow(QMainWindow):
         tabs.addTab(self.proportion_editor, "Proportions")
         self.setCentralWidget(tabs)
         self._sync_preview_arm_width()
+        self._apply_language()
+        self.language_combo.currentIndexChanged.connect(self._apply_language)
+
+    def _apply_language(self, *_args) -> None:
+        value = self.language_combo.currentData()
+        self._settings.setValue("session/language", value)
+        set_language(value)
+        apply_to_window(self)
+        self.proportion_editor.preview.update()
 
     @staticmethod
     def _path_row(edit: QLineEdit, button: QPushButton) -> QWidget:
@@ -255,11 +278,9 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def _choose_skin(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Select Minecraft Skin", self.skin_edit.text(), "PNG (*.png)", options=QFileDialog.Option.DontUseNativeDialog
-        )
+        path, _ = QFileDialog.getOpenFileName(self, tr('Select Minecraft Skin'), self.skin_edit.text(), 'PNG (*.png)', options=QFileDialog.Option.DontUseNativeDialog)
         if path:
-            self.skin_edit.setText(path)
+            set_text(self.skin_edit, path)
             self._sync_preview_arm_width()
 
     @Slot()
@@ -279,33 +300,31 @@ class MainWindow(QMainWindow):
             skin = load_skin(self.skin_edit.text().strip(), choice)
         except SkinError as exc:
             self.skin_thumbnail.clear()
-            self.skin_info.setText(str(exc) if self.skin_edit.text().strip() else "Drop a 64×64 PNG here.")
+            set_text(self.skin_info, str(exc) if self.skin_edit.text().strip() else 'Drop a 64×64 PNG here.')
         else:
             self.skin_thumbnail.setPixmap(QPixmap.fromImage(ImageQt(skin.image)).scaled(
                 64, 64, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.FastTransformation))
-            self.skin_info.setText(f"64×64 · {skin.arm_model} · " + skin.path.name)
+            set_text(self.skin_info, f'64×64 · {skin.arm_model} · ' + skin.path.name)
 
     @Slot()
     def _choose_output(self) -> None:
-        path = QFileDialog.getExistingDirectory(
-            self, "Select Output Folder", self.output_edit.text(), options=QFileDialog.Option.DontUseNativeDialog
-        )
+        path = QFileDialog.getExistingDirectory(self, tr('Select Output Folder'), self.output_edit.text(), options=QFileDialog.Option.DontUseNativeDialog)
         if path:
-            self.output_edit.setText(path)
+            set_text(self.output_edit, path)
 
     @Slot()
     def _generate(self) -> None:
         skin_path = self.skin_edit.text().strip()
         output_directory = self.output_edit.text().strip()
         if not skin_path:
-            QMessageBox.warning(self, "No File Selected", "Select skin.png.")
+            QMessageBox.warning(self, tr('No File Selected'), tr('Select skin.png.'))
             return
         if not output_directory:
-            QMessageBox.warning(self, "No Output Folder", "Select an output folder.")
+            QMessageBox.warning(self, tr('No Output Folder'), tr('Select an output folder.'))
             return
 
         self.generate_button.setEnabled(False)
-        self.status_label.setText("Generating…")
+        set_text(self.status_label, 'Generating…')
         thread = QThread(self)
         worker = GenerationWorker(
             skin_path,
@@ -339,20 +358,13 @@ class MainWindow(QMainWindow):
         self._last_output = Path(output_path)
         self.open_output_button.setEnabled(True)
         animation_list = animations or "None"
-        self.status_label.setText(
-            f"GLB generated · Animations: {animation_list}\n{output_path}"
-        )
-        QMessageBox.information(
-            self,
-            "Generation Complete",
-            f"Rigged GLB generated\nAnimations: {animation_list}\n"
-            f"Arm type: {arm_model}\n\n{output_path}",
-        )
+        set_text(self.status_label, f'GLB generated · Animations: {animation_list}\n{output_path}')
+        QMessageBox.information(self, tr('Generation Complete'), tr(f'Rigged GLB generated\nAnimations: {animation_list}\nArm type: {arm_model}\n\n{output_path}'))
 
     @Slot(str)
     def _generation_failed(self, message: str) -> None:
-        self.status_label.setText("Generation failed.")
-        QMessageBox.critical(self, "Error", message)
+        set_text(self.status_label, 'Generation failed.')
+        QMessageBox.critical(self, tr('Error'), tr(message))
 
     @Slot()
     def _thread_finished(self) -> None:
@@ -360,10 +372,14 @@ class MainWindow(QMainWindow):
         self._thread = None
         self._worker = None
 
+    def _show_licenses(self) -> None:
+        message = tr("This application uses Qt / PySide6 under LGPLv3. License texts, source information and library replacement instructions are included in THIRD_PARTY_NOTICES.md next to the executable.")
+        QMessageBox.information(self, tr("Third-party licenses"), message)
+
     def _open_output(self) -> None:
         if self._last_output is not None:
             if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._last_output.parent))):
-                QMessageBox.warning(self, "Output Folder", f"Open the folder manually: {self._last_output.parent}")
+                QMessageBox.warning(self, tr('Output Folder'), tr(f'Open the folder manually: {self._last_output.parent}'))
 
     def dragEnterEvent(self, event) -> None:
         if event.mimeData().hasUrls():
@@ -374,15 +390,13 @@ class MainWindow(QMainWindow):
     def dropEvent(self, event) -> None:
         urls = event.mimeData().urls()
         if len(urls) == 1 and urls[0].isLocalFile():
-            self.skin_edit.setText(urls[0].toLocalFile())
+            set_text(self.skin_edit, urls[0].toLocalFile())
             self._sync_preview_arm_width()
             event.acceptProposedAction()
 
     def closeEvent(self, event: QCloseEvent) -> None:
         if self._thread is not None and self._thread.isRunning():
-            QMessageBox.information(
-                self, "Generation In Progress", "Please wait for generation to finish."
-            )
+            QMessageBox.information(self, tr('Generation In Progress'), tr('Please wait for generation to finish.'))
             event.ignore()
             return
         super().closeEvent(event)

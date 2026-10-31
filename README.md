@@ -1,99 +1,65 @@
-<div align="center">
-
-![Chibi Skin Generator](docs/assets/cover.png)
-
 # Chibi Skin Generator
 
-**Твой скин. Твой персонаж.**
+Offline Windows desktop application that converts a standard 64×64 Minecraft
+skin PNG into an editable chibi GLB with an embedded texture and a 12-joint rig.
 
-64×64 Minecraft PNG → редактируемый chibi GLB со скелетом и анимациями.
+## Download
 
-English UI · Windows x64 · Полностью офлайн · Steve & Alex · v0.8.0
+Get `ChibiSkinGenerator-0.8.0-Windows-x64-EN-RU.zip` from
+[Releases](https://github.com/Chahmetski/ChibiSkinGenerator/releases).
+Extract the entire ZIP and run `ChibiSkinGenerator.exe`. Keep `_internal/`
+beside the EXE. Python and Blender are not required for generation.
 
-</div>
+## Languages
 
-Небольшая самостоятельная программа: выбираешь скин, настраиваешь пропорции
-и получаешь один `.glb` со встроенной текстурой. Модель можно открыть в Blender,
-редактировать по частям и использовать в своём игровом проекте.
+Use **Language** at the top of the Generator tab to switch between **English**
+and **Русский** immediately. Your choice is saved for the next launch.
+Preset data, paths and animation selections are preserved when switching.
 
-## Запуск готовой программы
+## Features
 
-1. Скачай `ChibiSkinGenerator-0.8.0-Windows-x64-English.zip` из раздела [**Releases → Assets**](https://github.com/Chahmetski/ChibiSkinGenerator/releases).
-2. Распакуй архив целиком в обычную папку.
-3. Запусти **ChibiSkinGenerator.exe** из распакованной папки.
+- Actual 64×64 PNG validation; Steve, Alex and Auto arm selection.
+- Separate base and overlay layers: 12 editable meshes, alpha-mask overlays.
+- One glTF skin with 12 stable joints and hard per-part weights.
+- Fifteen optional in-place animation clips.
+- Compact Chibi, Balanced Chibi, Big Head and Legacy presets.
+- Linked proportion controls, JSON user presets and session persistence.
+- Embedded pixel texture with nearest sampling; Pixel Unlit / PBR Lit.
+- Numbered exports preserve existing files. Generation runs in a worker thread.
 
-Устанавливать Python или Blender для генерации не нужно. Папка `_internal`
-должна оставаться рядом с EXE. Интернет программе не требуется.
+## Interface
 
-## Что умеет
+![Generator](docs/screenshots/generator.png)
 
-| Возможность | Результат |
-|---|---|
-| PNG 64×64 | Проверка настоящего PNG и размера файла |
-| Steve / Alex / Auto | Руки 4 или 3 пикселя |
-| Базовый и второй слои | 12 отдельных мешей с прозрачностью overlay |
-| Четыре пресета | Compact Chibi, Balanced Chibi, Big Head, Legacy |
-| Редактор пропорций | Размеры, угол рук, отступы слоёв, JSON-пресеты |
-| Настоящий glTF-риг | Один skin, 12 суставов, жёсткие веса по частям |
-| 15 необязательных клипов | Передвижение, позы, удары, реакция и смерть |
-| Pixel Unlit / PBR Lit | Пиксельная текстура без сглаживания |
-| Самодостаточный GLB | Текстура встроена; внешние PNG не нужны |
+![Proportion editor](docs/screenshots/proportions.png)
 
-Повторная генерация не заменяет предыдущий GLB: новые файлы получают номера.
-Настройки, пути и выбор клипов сохраняются между запусками.
+## Development
 
-## Интерфейс
+Use Windows and **Python 3.11.9**. Run `setup.bat`, then `run.bat`.
+Run `.venv\Scripts\python.exe -m pytest` for tests.
+Run `build.bat` to prepare upstream Qt sources and create a verified portable
+ZIP, a dependency source archive, and SHA-256 checksums in `dist/`.
+Build-time downloads do not add any network dependency to the application.
 
-![Генератор](docs/screenshots/generator.png)
+## Licenses and assets
 
-![Пропорции](docs/screenshots/proportions.png)
+The application uses Qt / PySide6 under LGPLv3. The release includes license
+texts, notices and library replacement instructions. Matching unmodified Qt
+and PySide6 source archives are supplied as a separate release asset.
+See [third-party notices](THIRD_PARTY_NOTICES.md) and the in-app **Licenses** button.
 
-## Анимации
+No open-source license has been selected for the project's own code yet.
+A private repository does not change third-party library obligations when
+binaries are distributed. Do not assume that the code or example skins are MIT-licensed.
+User skins and exported textures retain their original authors' rights.
 
-`Idle`, `Walk`, `Run`, `Jump`, `Fall`, `Land`, `SitIdle`, `ZombieWalk`,
-`HitReact`, `WeaponIdle`, `Aim`, `AttackOneHand`, `AttackDualDaggers`,
-`AttackHeavySide`, `Death`.
+**NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.**
 
-Клипы работают in-place: перемещение персонажа, высота прыжка, переходы между
-состояниями и нанесение урона управляются твоей игрой. Оружия в модели нет.
-Hand/Foot — вспомогательные суставы; локтей и коленей в этом риге нет.
+## Limits and documentation
 
-## Для разработчика
+Only standard 64×64 PNG skins. No elbows, knees, weapons, root motion or 3D preview.
+Auto arm detection is heuristic. Walk/Run are rotation-only; physical foot
+placement is limited by rigid cuboid limbs. Game movement, damage and animation
+transitions are implemented in the consuming game.
 
-Нужен **Python 3.11.9** на Windows. Зависимости зафиксированы в
-`requirements.txt`. Первая установка пакетов может потребовать интернет;
-запущенное приложение всегда работает офлайн.
-
-```bat
-setup.bat
-run.bat
-```
-
-Тесты:
-
-```bat
-.venv\Scripts\python.exe -m pytest
-```
-
-Сборка проверенного переносимого ZIP:
-
-```bat
-build.bat
-```
-
-Скрипт собирает EXE через PyInstaller, проверяет запуск интерфейса и экспорт
-внутри готовой сборки, затем создаёт ZIP и SHA-256 в `dist/`.
-Параметр `ChibiSkinGenerator.exe --self-test <папка>` запускает ту же офлайн-диагностику.
-
-## Подробнее
-
-- [English user guide](README_EN.md)
-- [Подробная инструкция, UV, структура модели и ограничения](README_RU.md)
-- [Описание Windows-релиза](RELEASE_NOTES.md)
-- [Сторонние компоненты и лицензии](THIRD_PARTY_NOTICES.md)
-
-Обложка — рекламная иллюстрация на основе рендеров скинов Demon, Knight, Mag
-и Samurai, предоставленных владельцем проекта. Реальный интерфейс показан
-на скриншотах выше. Обложка не является снимком экспортированной сцены.
-
-Независимый проект, не официальный продукт Minecraft / Mojang / Microsoft.
+[English guide](README_EN.md) · [Russian technical guide](README_RU.md)
