@@ -24,7 +24,7 @@ from chibi_skin_generator.uv_tables import uv_table
 def test_renaming_another_format_to_png_is_rejected(tmp_path, format):
     path = tmp_path / "fake.png"
     Image.new("RGB", (64, 64)).save(path, format=format)
-    with pytest.raises(SkinError, match="Содержимое"):
+    with pytest.raises(SkinError, match="PNG data"):
         load_skin(path)
 
 

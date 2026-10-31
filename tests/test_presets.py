@@ -42,22 +42,22 @@ def test_missing_fields_use_safe_defaults(tmp_path: Path) -> None:
 def test_corrupted_json_and_invalid_values_are_readable_errors(tmp_path: Path) -> None:
     storage = PresetStorage(tmp_path)
     (tmp_path / "Broken.json").write_text("{ definitely broken", encoding="utf-8")
-    with pytest.raises(PresetError, match="повреждённый JSON"):
+    with pytest.raises(PresetError, match="invalid JSON"):
         storage.load("Broken")
 
     (tmp_path / "Invalid.json").write_text(
         json.dumps({"format_version": 1, "settings": {"head_size": 99}}),
         encoding="utf-8",
     )
-    with pytest.raises(PresetError, match="Некорректные параметры"):
+    with pytest.raises(PresetError, match="Invalid preset settings"):
         storage.load("Invalid")
 
 
 def test_builtin_presets_cannot_be_overwritten_or_deleted(tmp_path: Path) -> None:
     storage = PresetStorage(tmp_path)
-    with pytest.raises(PresetError, match="нельзя перезаписать"):
+    with pytest.raises(PresetError, match="cannot be overwritten"):
         storage.save(COMPACT_CHIBI, ProportionSettings())
-    with pytest.raises(PresetError, match="нельзя удалить"):
+    with pytest.raises(PresetError, match="cannot be deleted"):
         storage.delete(COMPACT_CHIBI)
     assert get_builtin_preset(COMPACT_CHIBI) == ProportionSettings()
 

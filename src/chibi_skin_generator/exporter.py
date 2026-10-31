@@ -172,7 +172,7 @@ def _pixel_sampler(document: dict) -> None:
 
 def _material_mode(document: dict, material_mode: str) -> None:
     if material_mode not in MATERIAL_MODES:
-        raise ValueError(f"Неизвестный режим материала: {material_mode}")
+        raise ValueError(f"Unknown material mode: {material_mode}")
 
     extensions_used = document.setdefault("extensionsUsed", [])
     if material_mode == PIXEL_UNLIT:
@@ -481,7 +481,7 @@ def generate_model(
     skin = load_skin(skin_path, arm_choice)
     output_dir = Path(output_directory)
     if output_dir.exists() and not output_dir.is_dir():
-        raise ValueError("Путь сохранения должен указывать на папку.")
+        raise ValueError("The output path must point to a folder.")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     settings = proportions or get_builtin_preset(DEFAULT_PRESET)
@@ -532,7 +532,7 @@ def generate_diagnostic_model(
     skin = load_skin(skin_path, arm_choice)
     output_dir = Path(output_directory)
     if output_dir.exists() and not output_dir.is_dir():
-        raise ValueError("Путь сохранения должен указывать на папку.")
+        raise ValueError("The output path must point to a folder.")
     output_dir.mkdir(parents=True, exist_ok=True)
     settings = proportions or get_builtin_preset(DEFAULT_PRESET)
     meshes = build_chibi_meshes(uv_table(skin.arm_width), skin.arm_width, settings)

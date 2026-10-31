@@ -72,11 +72,11 @@ class ProportionPreview(QWidget):
 
         painter.setFont(QFont("Segoe UI", 9))
         painter.setPen(QColor("#dbe4f0"))
-        painter.drawText(QRectF(margin, 8, view_width, 24), Qt.AlignmentFlag.AlignCenter, "Спереди")
+        painter.drawText(QRectF(margin, 8, view_width, 24), Qt.AlignmentFlag.AlignCenter, "Front")
         painter.drawText(
             QRectF(margin * 2 + view_width, 8, view_width, 24),
             Qt.AlignmentFlag.AlignCenter,
-            "Сбоку",
+            "Side",
         )
 
         ground_pen = QPen(QColor("#778397"), 1.0, Qt.PenStyle.DashLine)
@@ -107,11 +107,11 @@ class ProportionPreview(QWidget):
 
         painter.setPen(QColor("#dbe4f0"))
         painter.drawText(QRectF(0, self.height()-54, self.width(), 22),
-                         Qt.AlignmentFlag.AlignCenter, "Голова · корпус · руки · ноги; красные точки — суставы")
+                         Qt.AlignmentFlag.AlignCenter, "Head · body · arms · legs; red dots mark joints")
         painter.drawText(
             QRectF(0, self.height() - 30, self.width(), 22),
             Qt.AlignmentFlag.AlignCenter,
-            f"Высота: {layout.total_height:.3f}",
+            f"Height: {layout.total_height:.3f}",
         )
 
     def _draw_part(

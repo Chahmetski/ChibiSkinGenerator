@@ -117,5 +117,37 @@ def test_preset_save_permission_error_is_displayed(application, tmp_path, monkey
     messages = []
     monkeypatch.setattr(QMessageBox, "critical", lambda *args: messages.append(args[-1]))
     editor._save_preset()
-    assert messages and "пресет" in messages[0]
+    assert messages and "preset" in messages[0]
+    editor.deleteLater()
+
+
+def test_english_interface_and_decimal_separator(application, tmp_path):
+    import re
+    from PySide6.QtCore import QLocale
+    from PySide6.QtWidgets import QLabel, QPushButton, QGroupBox, QTabWidget, QWidget
+    QLocale.setDefault(QLocale(QLocale.Language.Russian))
+    settings = QSettings(str(tmp_path / "english.ini"), QSettings.Format.IniFormat)
+    window = MainWindow(settings)
+    assert window.generate_button.text() == "Generate GLB"
+    assert window.proportion_editor.controls["head_size"].spin.locale().decimalPoint() == "."
+    tabs = window.findChild(QTabWidget)
+    assert [tabs.tabText(i) for i in range(tabs.count())] == ["Generator", "Proportions"]
+    for widget in window.findChildren(QWidget):
+        strings = [widget.toolTip()]
+        if isinstance(widget, (QLabel, QPushButton)):
+            strings.append(widget.text())
+        if isinstance(widget, QGroupBox):
+            strings.append(widget.title())
+        assert not any(re.search("[\u0400-\u04ff]", text) for text in strings), strings
+    window.deleteLater()
+
+
+def test_previous_russian_custom_state_migrates_to_english(application, tmp_path):
+    import json
+    settings = QSettings(str(tmp_path / "migration.ini"), QSettings.Format.IniFormat)
+    settings.setValue("proportions/selected_preset", "\u0421\u0432\u043e\u0438 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u044b")
+    settings.setValue("proportions/values", json.dumps({"head_size": 1.2}))
+    editor = ProportionEditor(settings, PresetStorage(tmp_path / "presets"))
+    assert editor.preset_combo.currentText() == "Custom"
+    assert editor.settings.head_size == pytest.approx(1.2)
     editor.deleteLater()

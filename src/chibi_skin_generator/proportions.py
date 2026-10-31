@@ -29,28 +29,28 @@ class ParameterSpec:
 
 PARAMETER_SPECS: Mapping[str, ParameterSpec] = MappingProxyType(
     {
-        "overall_scale": ParameterSpec("Общий масштаб", "Общие", 0.1, 10.0, 0.05, 3),
-        "head_size": ParameterSpec("Размер головы", "Общие", 0.5, 1.5, 0.01, 3),
+        "overall_scale": ParameterSpec("Overall scale", "General", 0.1, 10.0, 0.05, 3),
+        "head_size": ParameterSpec("Head size", "General", 0.5, 1.5, 0.01, 3),
         "head_overlay_offset": ParameterSpec(
-            "Отступ слоя головы", "Общие", 0.005, 0.08, 0.001, 5
+            "Head overlay offset", "General", 0.005, 0.08, 0.001, 5
         ),
         "other_overlay_offset": ParameterSpec(
-            "Отступ остальных слоёв", "Общие", 0.005, 0.05, 0.001, 5
+            "Other overlay offset", "General", 0.005, 0.05, 0.001, 5
         ),
-        "body_width": ParameterSpec("Ширина корпуса", "Корпус", 0.3, 0.9, 0.01, 3),
-        "body_height": ParameterSpec("Высота корпуса", "Корпус", 0.3, 1.0, 0.01, 3),
-        "body_depth": ParameterSpec("Глубина корпуса", "Корпус", 0.15, 0.6, 0.01, 3),
-        "arm_length": ParameterSpec("Длина рук", "Руки", 0.25, 1.0, 0.01, 3),
-        "arm_thickness": ParameterSpec("Толщина рук", "Руки", 0.6, 1.5, 0.01, 3),
-        "arm_depth": ParameterSpec("Глубина рук", "Руки", 0.15, 0.5, 0.01, 3),
+        "body_width": ParameterSpec("Body width", "Body", 0.3, 0.9, 0.01, 3),
+        "body_height": ParameterSpec("Body height", "Body", 0.3, 1.0, 0.01, 3),
+        "body_depth": ParameterSpec("Body depth", "Body", 0.15, 0.6, 0.01, 3),
+        "arm_length": ParameterSpec("Arm length", "Arms", 0.25, 1.0, 0.01, 3),
+        "arm_thickness": ParameterSpec("Arm thickness", "Arms", 0.6, 1.5, 0.01, 3),
+        "arm_depth": ParameterSpec("Arm depth", "Arms", 0.15, 0.5, 0.01, 3),
         "shoulder_overlap": ParameterSpec(
-            "Перекрытие плеча", "Руки", 0.0, 0.05, 0.001, 4
+            "Shoulder overlap", "Arms", 0.0, 0.05, 0.001, 4
         ),
-        "arm_angle": ParameterSpec("Угол рук", "Руки", 0.0, 20.0, 0.25, 2),
-        "leg_length": ParameterSpec("Длина ног", "Ноги", 0.25, 1.2, 0.01, 3),
-        "leg_width": ParameterSpec("Ширина ног", "Ноги", 0.15, 0.45, 0.01, 3),
-        "leg_depth": ParameterSpec("Глубина ног", "Ноги", 0.15, 0.5, 0.01, 3),
-        "leg_gap": ParameterSpec("Расстояние между ногами", "Ноги", 0.0, 0.25, 0.005, 3),
+        "arm_angle": ParameterSpec("Arm angle", "Arms", 0.0, 20.0, 0.25, 2),
+        "leg_length": ParameterSpec("Leg length", "Legs", 0.25, 1.2, 0.01, 3),
+        "leg_width": ParameterSpec("Leg width", "Legs", 0.15, 0.45, 0.01, 3),
+        "leg_depth": ParameterSpec("Leg depth", "Legs", 0.15, 0.5, 0.01, 3),
+        "leg_gap": ParameterSpec("Leg gap", "Legs", 0.0, 0.25, 0.005, 3),
     }
 )
 
@@ -83,12 +83,12 @@ class ProportionSettings:
             value = getattr(self, field.name)
             spec = PARAMETER_SPECS[field.name]
             if isinstance(value, bool) or not isinstance(value, (int, float)):
-                raise ProportionError(f"{field.name} должен быть числом.")
+                raise ProportionError(f"{field.name} must be a number.")
             if not math.isfinite(float(value)):
-                raise ProportionError(f"{field.name} должен быть конечным числом.")
+                raise ProportionError(f"{field.name} must be a finite number.")
             if not spec.minimum <= float(value) <= spec.maximum:
                 raise ProportionError(
-                    f"{field.name}: допустимый диапазон {spec.minimum}–{spec.maximum}."
+                    f"{field.name}: allowed range {spec.minimum}–{spec.maximum}."
                 )
 
     def to_dict(self) -> dict[str, float]:
@@ -97,13 +97,13 @@ class ProportionSettings:
     @classmethod
     def from_mapping(cls, data: Mapping[str, object]) -> "ProportionSettings":
         if not isinstance(data, Mapping):
-            raise ProportionError("Настройки пропорций должны быть JSON-объектом.")
+            raise ProportionError("Proportion settings must be a JSON object.")
         defaults = cls()
         values: dict[str, float] = {}
         for field in fields(cls):
             value = data.get(field.name, getattr(defaults, field.name))
             if isinstance(value, bool) or not isinstance(value, (int, float)):
-                raise ProportionError(f"{field.name} должен быть числом.")
+                raise ProportionError(f"{field.name} must be a number.")
             values[field.name] = float(value)
         return cls(**values)
 
@@ -140,7 +140,7 @@ def calculate_proportions(
     if not isinstance(settings, ProportionSettings):
         raise TypeError("settings must be a ProportionSettings instance")
     if arm_pixels not in (3, 4):
-        raise ProportionError("Ширина рук должна быть 3 (Alex) или 4 (Steve) пикселя.")
+        raise ProportionError("Arm width must be 3 (Alex) or 4 (Steve) pixels.")
 
     scale = settings.overall_scale
     arm_base = ALEX_ARM_BASE_WIDTH if arm_pixels == 3 else STEVE_ARM_BASE_WIDTH
@@ -285,4 +285,4 @@ def get_builtin_preset(name: str) -> ProportionSettings:
     try:
         return replace(_BUILTIN_PRESETS[name])
     except KeyError as exc:
-        raise ProportionError(f"Неизвестный встроенный пресет: {name}") from exc
+        raise ProportionError(f"Unknown built-in preset: {name}") from exc

@@ -32,7 +32,7 @@ def main() -> None:
         candidate = folder / "_internal" / name
         if candidate.exists():
             candidate.unlink()
-    for name in ("README_RU.md", "THIRD_PARTY_NOTICES.md"):
+    for name in ("README_EN.md", "THIRD_PARTY_NOTICES.md"):
         shutil.copy2(ROOT / name, folder / name)
     # Preserve dependency notices alongside their binaries.
     licenses = folder / "licenses"
@@ -61,7 +61,7 @@ def main() -> None:
     report = json.loads((report_dir / "report.json").read_text(encoding="utf-8"))
     if completed.returncode or not report.get("ok"):
         raise SystemExit(f"Frozen smoke test failed: {report}")
-    archive = ROOT / "dist" / f"ChibiSkinGenerator-{__version__}-Windows-x64.zip"
+    archive = ROOT / "dist" / f"ChibiSkinGenerator-{__version__}-Windows-x64-English.zip"
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
         for file in sorted(folder.rglob("*")):
             if file.is_file():

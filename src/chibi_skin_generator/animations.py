@@ -668,7 +668,7 @@ def build_animation_clips(
         selected = set(animation_names)
         unknown = selected - set(ANIMATION_NAMES)
         if unknown:
-            raise ValueError(f"Неизвестные анимации: {', '.join(sorted(unknown))}")
+            raise ValueError(f"Unknown animations: {', '.join(sorted(unknown))}")
     clips = []
     for name, factory in CLIP_FACTORIES.items():
         if name not in selected:

@@ -1,33 +1,35 @@
-# Chibi Skin Generator 0.8.0 — Windows portable
+# Chibi Skin Generator 0.8.0 — English Windows portable
 
-Самостоятельная Windows x64 программа для преобразования скинов Minecraft
-64×64 в редактируемые chibi GLB со встроенной текстурой.
+The Windows portable release now uses an English interface throughout:
+buttons, tabs, settings, tooltips, file dialogs, validation errors and export
+messages. Existing settings and user presets are preserved.
 
-## В архиве
+## Download and run
 
-- `ChibiSkinGenerator.exe` — приложение;
-- `_internal/` — Python, Qt и необходимые библиотеки;
-- `licenses/` — уведомления о сторонних компонентах;
-- `README_RU.md` и `THIRD_PARTY_NOTICES.md`.
+Download `ChibiSkinGenerator-0.8.0-Windows-x64-English.zip`, extract it completely,
+and run `ChibiSkinGenerator.exe`. Keep `_internal/` beside the executable.
+No Python installation is required. The application works offline.
 
-Распакуйте ZIP целиком и запустите EXE. Python устанавливать не нужно.
+The ZIP includes an English user guide and third-party license notices.
 
-## Возможности
+## Features
 
-Steve/Alex/Auto, базовый и overlay-слои, 12 мешей, 12 суставов,
-15 выбираемых анимаций, четыре встроенных пресета и редактор пропорций.
-Полностью офлайн. Экспорт GLB; Blender используется только для дальнейшего
-редактирования результата, не для генерации.
+- Standard Minecraft PNG 64×64 input, Steve / Alex / Auto.
+- Base and overlay layers, 12 editable meshes, one 12-joint glTF skin.
+- Fifteen optional in-place animation clips.
+- Four proportion presets, linked controls and JSON user presets.
+- Embedded PNG texture; nearest sampling; Pixel Unlit or PBR Lit.
+- Existing exports are preserved through numbered filenames.
 
-## Проверки
+## Validation
 
-Сборка должна пройти встроенную проверку интерфейса и экспорта 12 мешей,
-одного skin, 12 суставов и 15 клипов. Контрольная сумма находится в `.zip.sha256`.
-Тестирование на этой машине не заменяет проверку на всех версиях Windows.
+144 automated tests passed. The packaged EXE was checked for English labels
+and locale, interface startup, PNG preview and GLB export with 12 meshes,
+one skin, 12 joints and 15 animations. SHA-256 is supplied alongside the ZIP.
 
-## Ограничения
+## Limits
 
-Только PNG 64×64; без локтей, коленей, оружия и root motion.
-Автоматическое определение Alex эвристическое. Walk/Run используют только
-вращения, что ограничивает физическую постановку стоп. Переходы анимаций
-и игровое перемещение настраиваются в игре.
+Only 64×64 PNG skins. No elbows, knees, weapons or root motion.
+Auto arm detection is heuristic. Walk/Run are rotation-only; physical foot
+placement is limited by the rigid cuboid limbs. Animation transitions and
+character movement are controlled by the consuming game.

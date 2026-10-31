@@ -8,7 +8,7 @@
 
 64×64 Minecraft PNG → редактируемый chibi GLB со скелетом и анимациями.
 
-Windows x64 · Полностью офлайн · Steve & Alex · v0.8.0
+English UI · Windows x64 · Полностью офлайн · Steve & Alex · v0.8.0
 
 </div>
 
@@ -18,7 +18,7 @@ Windows x64 · Полностью офлайн · Steve & Alex · v0.8.0
 
 ## Запуск готовой программы
 
-1. Скачай `ChibiSkinGenerator-0.8.0-Windows-x64.zip` из раздела [**Releases → Assets**](https://github.com/Chahmetski/ChibiSkinGenerator/releases).
+1. Скачай `ChibiSkinGenerator-0.8.0-Windows-x64-English.zip` из раздела [**Releases → Assets**](https://github.com/Chahmetski/ChibiSkinGenerator/releases).
 2. Распакуй архив целиком в обычную папку.
 3. Запусти **ChibiSkinGenerator.exe** из распакованной папки.
 
@@ -87,6 +87,7 @@ build.bat
 
 ## Подробнее
 
+- [English user guide](README_EN.md)
 - [Подробная инструкция, UV, структура модели и ограничения](README_RU.md)
 - [Описание Windows-релиза](RELEASE_NOTES.md)
 - [Сторонние компоненты и лицензии](THIRD_PARTY_NOTICES.md)

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from PIL.ImageQt import ImageQt
 
-from PySide6.QtCore import QObject, QSettings, QStandardPaths, QThread, Signal, Slot, Qt, QUrl
+from PySide6.QtCore import QObject, QSettings, QStandardPaths, QThread, Signal, Slot, Qt, QUrl, QLocale
 from PySide6.QtGui import QCloseEvent, QDesktopServices, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -77,6 +77,8 @@ class GenerationWorker(QObject):
 class MainWindow(QMainWindow):
     def __init__(self, settings: QSettings | None = None) -> None:
         super().__init__()
+        QLocale.setDefault(QLocale("en_US"))
+        self.setLocale(QLocale("en_US"))
         self.setWindowTitle(f"Minecraft Skin → Chibi GLB — v{__version__}")
         self.setMinimumSize(820, 620)
         self.resize(1040, 760)
@@ -90,8 +92,8 @@ class MainWindow(QMainWindow):
         self.skin_edit = QLineEdit()
         self.skin_edit.setText(self._settings.value("session/skin", "", type=str))
         self.skin_edit.textChanged.connect(lambda value: self._settings.setValue("session/skin", value))
-        self.skin_edit.setPlaceholderText("Выберите skin.png размером 64×64")
-        skin_button = QPushButton("Обзор…")
+        self.skin_edit.setPlaceholderText("Select a 64×64 skin.png file")
+        skin_button = QPushButton("Browse…")
         skin_button.clicked.connect(self._choose_skin)
 
         self.arm_combo = QComboBox()
@@ -99,7 +101,7 @@ class MainWindow(QMainWindow):
         saved_arm = self._settings.value("session/arms", "Auto", type=str)
         self.arm_combo.setCurrentText(saved_arm if saved_arm in ("Auto", "Steve", "Alex") else "Auto")
         self.arm_combo.currentTextChanged.connect(lambda value: self._settings.setValue("session/arms", value))
-        self.arm_combo.setToolTip("Auto — определение по прозрачности. При ошибке выберите Steve или Alex вручную.")
+        self.arm_combo.setToolTip("Auto detects the arm type from transparency. If incorrect, select Steve or Alex manually.")
         self.material_combo = QComboBox()
         self.material_combo.addItems(MATERIAL_MODES)
         saved_material = self._settings.value("materials/mode", PIXEL_UNLIT, type=str)
@@ -118,26 +120,26 @@ class MainWindow(QMainWindow):
         ) or str(Path.cwd())
         self.output_edit = QLineEdit(self._settings.value("session/output", default_output, type=str))
         self.output_edit.textChanged.connect(lambda value: self._settings.setValue("session/output", value))
-        output_button = QPushButton("Обзор…")
+        output_button = QPushButton("Browse…")
         output_button.clicked.connect(self._choose_output)
 
-        self.generate_button = QPushButton("Создать GLB")
+        self.generate_button = QPushButton("Generate GLB")
         self.generate_button.setDefault(True)
         self.generate_button.clicked.connect(self._generate)
-        self.status_label = QLabel("Готово к генерации. Повторные экспорты сохраняются с новым номером.")
+        self.status_label = QLabel("Ready to generate. Repeated exports are saved with a new number.")
         self.status_label.setWordWrap(True)
         self.status_label.setTextFormat(Qt.TextFormat.PlainText)
-        self.open_output_button = QPushButton("Открыть папку результата")
+        self.open_output_button = QPushButton("Open Output Folder")
         self.open_output_button.setEnabled(False)
         self.open_output_button.clicked.connect(self._open_output)
         self.skin_thumbnail = QLabel()
         self.skin_thumbnail.setFixedSize(80, 80)
         self.skin_thumbnail.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.skin_info = QLabel("Перетащите PNG 64×64 в окно или выберите файл.")
+        self.skin_info = QLabel("Drop a 64×64 PNG here or select a file.")
         self.skin_info.setWordWrap(True)
         pose_hint = QLabel(
-            "В Blender: выберите Skeleton → Pose Mode → Head, Spine, Arm.L/R "
-            "или Leg.L/R. Hand и Foot пока вспомогательные и не двигают меши."
+            "In Blender: select Skeleton → Pose Mode → Head, Spine, Arm.L/R "
+            "or Leg.L/R. Hand and Foot are helper joints and do not deform meshes."
         )
         pose_hint.setWordWrap(True)
 
@@ -146,13 +148,13 @@ class MainWindow(QMainWindow):
         animation_list_layout = QGridLayout(animation_list)
         animation_list_layout.setContentsMargins(4, 4, 4, 4)
         loop_row, single_row = 1, 1
-        animation_list_layout.addWidget(QLabel("Зацикленные"), 0, 0)
-        animation_list_layout.addWidget(QLabel("Однократные"), 0, 1)
+        animation_list_layout.addWidget(QLabel("Looping"), 0, 0)
+        animation_list_layout.addWidget(QLabel("One-shot"), 0, 1)
         for animation_name in ANIMATION_NAMES:
             duration = CLIP_DURATIONS[animation_name]
-            checkbox = QCheckBox(f"{animation_name} · {duration:g} с")
-            checkbox.setToolTip(f"{animation_name}: {duration:g} с; " +
-                               ("зацикленный клип" if animation_name in LOOP_CLIP_NAMES else "однократное действие"))
+            checkbox = QCheckBox(f"{animation_name} · {duration:g} s")
+            checkbox.setToolTip(f"{animation_name}: {duration:g} s; " +
+                               ("looping clip" if animation_name in LOOP_CLIP_NAMES else "one-shot action"))
             setting_key = self._animation_setting_key(animation_name)
             checkbox.setChecked(self._settings.value(setting_key, True, type=bool))
             checkbox.toggled.connect(
@@ -169,9 +171,9 @@ class MainWindow(QMainWindow):
         self.include_idle_checkbox = self.animation_checkboxes["Idle"]
         self.include_walk_checkbox = self.animation_checkboxes["Walk"]
 
-        self.select_all_animations_button = QPushButton("Выбрать все")
-        self.clear_animations_button = QPushButton("Снять выбор")
-        self.core_combat_pack_button = QPushButton("Весь набор · 15 клипов")
+        self.select_all_animations_button = QPushButton("Select All")
+        self.clear_animations_button = QPushButton("Clear Selection")
+        self.core_combat_pack_button = QPushButton("Full Pack · 15 Clips")
         self.select_all_animations_button.clicked.connect(
             lambda: self._set_all_animations(True)
         )
@@ -190,21 +192,21 @@ class MainWindow(QMainWindow):
         animation_scroll.setWidgetResizable(True)
         animation_scroll.setMaximumHeight(300)
         animation_scroll.setWidget(animation_list)
-        animation_group = QGroupBox("Анимации")
+        animation_group = QGroupBox("Animations")
         animation_layout = QVBoxLayout(animation_group)
         animation_layout.addLayout(animation_buttons)
         animation_layout.addWidget(animation_scroll)
 
         form = QFormLayout()
-        form.addRow("Скин PNG:", self._path_row(self.skin_edit, skin_button))
-        form.addRow("Тип рук:", self.arm_combo)
-        form.addRow("Материал:", self.material_combo)
-        form.addRow("Папка сохранения:", self._path_row(self.output_edit, output_button))
-        form.addRow("Формат:", QLabel("GLB 2.0 · модель со скелетом"))
+        form.addRow("Skin PNG:", self._path_row(self.skin_edit, skin_button))
+        form.addRow("Arm type:", self.arm_combo)
+        form.addRow("Material:", self.material_combo)
+        form.addRow("Output folder:", self._path_row(self.output_edit, output_button))
+        form.addRow("Format:", QLabel("GLB 2.0 · rigged model"))
 
         intro = QLabel(
-            "Создаёт редактируемую chibi-модель GLB из стандартного Minecraft-скина. "
-            "Текстура будет встроена в файл."
+            "Create an editable chibi GLB from a standard Minecraft skin. "
+            "The texture is embedded in the file."
         )
         intro.setWordWrap(True)
 
@@ -225,8 +227,8 @@ class MainWindow(QMainWindow):
         generator_tab = QWidget()
         generator_tab.setLayout(generator_layout)
         tabs = QTabWidget()
-        tabs.addTab(generator_tab, "Генератор")
-        tabs.addTab(self.proportion_editor, "Пропорции")
+        tabs.addTab(generator_tab, "Generator")
+        tabs.addTab(self.proportion_editor, "Proportions")
         self.setCentralWidget(tabs)
         self._sync_preview_arm_width()
 
@@ -254,7 +256,7 @@ class MainWindow(QMainWindow):
     @Slot()
     def _choose_skin(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Выберите Minecraft skin", self.skin_edit.text(), "PNG (*.png)"
+            self, "Select Minecraft Skin", self.skin_edit.text(), "PNG (*.png)", options=QFileDialog.Option.DontUseNativeDialog
         )
         if path:
             self.skin_edit.setText(path)
@@ -277,7 +279,7 @@ class MainWindow(QMainWindow):
             skin = load_skin(self.skin_edit.text().strip(), choice)
         except SkinError as exc:
             self.skin_thumbnail.clear()
-            self.skin_info.setText(str(exc) if self.skin_edit.text().strip() else "Перетащите PNG 64×64 в окно.")
+            self.skin_info.setText(str(exc) if self.skin_edit.text().strip() else "Drop a 64×64 PNG here.")
         else:
             self.skin_thumbnail.setPixmap(QPixmap.fromImage(ImageQt(skin.image)).scaled(
                 64, 64, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.FastTransformation))
@@ -286,7 +288,7 @@ class MainWindow(QMainWindow):
     @Slot()
     def _choose_output(self) -> None:
         path = QFileDialog.getExistingDirectory(
-            self, "Выберите папку сохранения", self.output_edit.text()
+            self, "Select Output Folder", self.output_edit.text(), options=QFileDialog.Option.DontUseNativeDialog
         )
         if path:
             self.output_edit.setText(path)
@@ -296,14 +298,14 @@ class MainWindow(QMainWindow):
         skin_path = self.skin_edit.text().strip()
         output_directory = self.output_edit.text().strip()
         if not skin_path:
-            QMessageBox.warning(self, "Нет файла", "Выберите skin.png.")
+            QMessageBox.warning(self, "No File Selected", "Select skin.png.")
             return
         if not output_directory:
-            QMessageBox.warning(self, "Нет папки", "Выберите папку сохранения.")
+            QMessageBox.warning(self, "No Output Folder", "Select an output folder.")
             return
 
         self.generate_button.setEnabled(False)
-        self.status_label.setText("Генерация…")
+        self.status_label.setText("Generating…")
         thread = QThread(self)
         worker = GenerationWorker(
             skin_path,
@@ -336,21 +338,21 @@ class MainWindow(QMainWindow):
     ) -> None:
         self._last_output = Path(output_path)
         self.open_output_button.setEnabled(True)
-        animation_list = animations or "нет"
+        animation_list = animations or "None"
         self.status_label.setText(
-            f"GLB создан · Анимации: {animation_list}\n{output_path}"
+            f"GLB generated · Animations: {animation_list}\n{output_path}"
         )
         QMessageBox.information(
             self,
-            "Генерация завершена",
-            f"GLB со скелетом создан\nАнимации: {animation_list}\n"
-            f"Тип рук: {arm_model}\n\n{output_path}",
+            "Generation Complete",
+            f"Rigged GLB generated\nAnimations: {animation_list}\n"
+            f"Arm type: {arm_model}\n\n{output_path}",
         )
 
     @Slot(str)
     def _generation_failed(self, message: str) -> None:
-        self.status_label.setText("Ошибка генерации.")
-        QMessageBox.critical(self, "Ошибка", message)
+        self.status_label.setText("Generation failed.")
+        QMessageBox.critical(self, "Error", message)
 
     @Slot()
     def _thread_finished(self) -> None:
@@ -361,7 +363,7 @@ class MainWindow(QMainWindow):
     def _open_output(self) -> None:
         if self._last_output is not None:
             if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._last_output.parent))):
-                QMessageBox.warning(self, "Папка результата", f"Откройте папку вручную: {self._last_output.parent}")
+                QMessageBox.warning(self, "Output Folder", f"Open the folder manually: {self._last_output.parent}")
 
     def dragEnterEvent(self, event) -> None:
         if event.mimeData().hasUrls():
@@ -379,7 +381,7 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event: QCloseEvent) -> None:
         if self._thread is not None and self._thread.isRunning():
             QMessageBox.information(
-                self, "Генерация выполняется", "Дождитесь завершения генерации."
+                self, "Generation In Progress", "Please wait for generation to finish."
             )
             event.ignore()
             return

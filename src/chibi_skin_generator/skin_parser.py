@@ -48,24 +48,24 @@ def detect_arm_model(pixels: np.ndarray) -> ArmModel:
 def load_skin(path: str | Path, arm_choice: ArmChoice = "Auto") -> SkinData:
     skin_path = Path(path)
     if arm_choice not in ("Steve", "Alex", "Auto"):
-        raise SkinError(f"Неизвестный тип рук: {arm_choice}")
+        raise SkinError(f"Unknown arm type: {arm_choice}")
     if not skin_path.is_file():
-        raise SkinError(f"Файл не найден: {skin_path}")
+        raise SkinError(f"File not found: {skin_path}")
     if skin_path.suffix.lower() != ".png":
-        raise SkinError("Выберите PNG-файл.")
+        raise SkinError("Select a PNG file.")
 
     try:
         with Image.open(skin_path) as opened:
             if opened.format != "PNG":
-                raise SkinError("Содержимое файла должно быть PNG, одного расширения недостаточно.")
+                raise SkinError("The file must contain PNG data; a .png extension alone is not enough.")
             if opened.size != (64, 64):
                 raise SkinError(
-                    f"Ожидался Minecraft-скин 64×64, получен {opened.width}×{opened.height}."
+                    f"Expected a 64×64 Minecraft skin; received {opened.width}×{opened.height}."
                 )
             opened.load()
             image = opened.convert("RGBA")
     except (UnidentifiedImageError, OSError) as exc:
-        raise SkinError(f"Не удалось прочитать PNG: {exc}") from exc
+        raise SkinError(f"Could not read PNG: {exc}") from exc
 
     pixels = np.asarray(image, dtype=np.uint8).copy()
     model: ArmModel = detect_arm_model(pixels) if arm_choice == "Auto" else arm_choice

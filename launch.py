@@ -20,5 +20,5 @@ if __name__ == "__main__":
             log = folder / "error.log"
             log.write_text(error, encoding="utf-8")
             import ctypes
-            ctypes.windll.user32.MessageBoxW(0, f"Ошибка запуска. Подробности: {log}", "ChibiSkinGenerator", 16)
+            ctypes.windll.user32.MessageBoxW(0, f"Startup failed. Details: {log}", "ChibiSkinGenerator", 16)
         raise SystemExit(1)
