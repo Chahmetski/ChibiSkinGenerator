@@ -55,8 +55,6 @@ A private repository does not change third-party library obligations when
 binaries are distributed. Do not assume that the code or example skins are MIT-licensed.
 User skins and exported textures retain their original authors' rights.
 
-**NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.**
-
 ## Limits and documentation
 
 Only standard 64×64 PNG skins. No elbows, knees, weapons, root motion or 3D preview.
@@ -65,3 +63,11 @@ placement is limited by rigid cuboid limbs. Game movement, damage and animation
 transitions are implemented in the consuming game.
 
 [English guide](README_EN.md) · [Russian technical guide](README_RU.md)
+
+---
+
+**NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.**
+
+Chibi Skin Generator is an independent project. It is not developed, published,
+endorsed or supported by Mojang Studios or Microsoft. Minecraft and its associated
+trademarks and assets belong to their respective owners.
