@@ -66,17 +66,17 @@ class ProportionPreview(QWidget):
         usable_height = max(80.0, self.height() - 90.0)
         horizontal_span = max(max_x * 2.0, max_z * 2.0, 0.5)
         scale = min(view_width / (horizontal_span * 1.15), usable_height / (model_height * 1.08))
-        ground_y = self.height() - 42.0
+        ground_y = (self.height() + model_height * scale) / 2.0
         front_center = margin + view_width / 2.0
         side_center = margin * 2.0 + view_width * 1.5
 
         painter.setFont(QFont("Segoe UI", 9))
         painter.setPen(QColor("#dbe4f0"))
-        painter.drawText(QRectF(margin, 8, view_width, 24), Qt.AlignmentFlag.AlignCenter, "Front")
+        painter.drawText(QRectF(margin, 8, view_width, 24), Qt.AlignmentFlag.AlignCenter, "Спереди")
         painter.drawText(
             QRectF(margin * 2 + view_width, 8, view_width, 24),
             Qt.AlignmentFlag.AlignCenter,
-            "Side",
+            "Сбоку",
         )
 
         ground_pen = QPen(QColor("#778397"), 1.0, Qt.PenStyle.DashLine)
@@ -106,10 +106,12 @@ class ProportionPreview(QWidget):
             painter.drawEllipse(QPointF(front_center + x * scale, ground_y - y * scale), 3.0, 3.0)
 
         painter.setPen(QColor("#dbe4f0"))
+        painter.drawText(QRectF(0, self.height()-54, self.width(), 22),
+                         Qt.AlignmentFlag.AlignCenter, "Голова · корпус · руки · ноги; красные точки — суставы")
         painter.drawText(
             QRectF(0, self.height() - 30, self.width(), 22),
             Qt.AlignmentFlag.AlignCenter,
-            f"Total height: {layout.total_height:.3f}",
+            f"Высота: {layout.total_height:.3f}",
         )
 
     def _draw_part(

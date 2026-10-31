@@ -624,20 +624,74 @@ def test_weapon_idle_to_aim_is_a_coherent_raise() -> None:
         )[1]
 
 
-def test_attack_heavy_side_stays_in_front_and_hits_diagonally() -> None:
+@pytest.mark.parametrize("preset_name", ("Compact Chibi", "Balanced Chibi", "Big Head", "Legacy"))
+@pytest.mark.parametrize("arm_width", (3, 4))
+def test_heavy_attack_ground_clearance_and_ready_pose(preset_name: str, arm_width: int) -> None:
+    settings = get_builtin_preset(preset_name)
+    meshes = build_chibi_meshes(uv_table(arm_width), arm_width, settings)
+    skeleton = build_skeleton(settings, arm_width)
+    clip = build_animation_clips(skeleton, animation_names=("AttackHeavySide",), meshes=meshes)[0]
+    # Check between exported samples too, where ground correction may drift.
+    for time in np.linspace(0, clip.duration, 241):
+        world = evaluate_clip(skeleton, clip, float(time))
+        ready_world = evaluate_clip(skeleton, clip, 0.0)
+        for name in ("Foot.L", "Foot.R"):
+            assert world[skeleton.index(name)][0,3] == pytest.approx(ready_world[skeleton.index(name)][0,3],abs=2e-6)
+        parts = posed_mesh_vertices(skeleton, meshes, evaluate_clip(skeleton, clip, float(time)))
+        lowest = min(float(vertices[:, 1].min()) for vertices in parts.values())
+        assert abs(lowest) < 0.001 * settings.overall_scale
+    for track in clip.tracks:
+        assert np.allclose(track.values[0], track.values[-1], atol=2e-6)
+
+
+@pytest.mark.parametrize("preset_name", ("Compact Chibi", "Balanced Chibi", "Big Head", "Legacy"))
+def test_attack_heavy_side_raises_then_strikes_down(preset_name: str) -> None:
+    skeleton, _, clips = _pose_pack(preset_name, ("AttackHeavySide",))
+    clip = clips["AttackHeavySide"]
+    ready = evaluate_clip(skeleton, clip, 0.0)
+    raised = evaluate_clip(skeleton, clip, 0.43)
+    hit = evaluate_clip(skeleton, clip, 0.51)
+    follow = evaluate_clip(skeleton, clip, 0.535)
+    for hand in ("Hand.L", "Hand.R"):
+        shoulder = hand.replace("Hand", "Arm")
+        assert _joint_position(skeleton, raised, hand)[1] > _joint_position(skeleton, raised, shoulder)[1]
+        assert _joint_position(skeleton, raised, hand)[1] > _joint_position(skeleton, ready, hand)[1] + 0.2
+        assert _joint_position(skeleton, hit, hand)[1] < _joint_position(skeleton, raised, hand)[1] - 0.2
+        assert _joint_position(skeleton, follow, hand)[1] < _joint_position(skeleton, hit, hand)[1]
+        heights = [_joint_position(skeleton, evaluate_clip(skeleton, clip, float(t)), hand)[1]
+                   for t in np.linspace(.43, .535, 40)]
+        assert np.max(np.diff(heights)) < 0.001
+    assert clip.extras["hitTime"] == 0.51
+
+
+def test_heavy_legs_hold_still_after_impact() -> None:
     skeleton, _, clips = _pose_pack("Compact Chibi", ("AttackHeavySide",))
     clip = clips["AttackHeavySide"]
-    for time in clip.tracks[0].times:
+    impact = evaluate_clip(skeleton, clip, .51)
+    for time in np.linspace(.51, .85, 80):
         world = evaluate_clip(skeleton, clip, float(time))
-        head_z = _joint_position(skeleton, world, "Head")[2]
-        assert _joint_position(skeleton, world, "Hand.L")[2] > head_z
-        assert _joint_position(skeleton, world, "Hand.R")[2] > head_z
-    hit_world = evaluate_clip(skeleton, clip, 0.51)
-    left = _joint_position(skeleton, hit_world, "Hand.L")
-    right = _joint_position(skeleton, hit_world, "Hand.R")
-    assert right[1] > left[1] + 0.1
-    assert right[2] > left[2] + 0.3
-    assert hit_world[skeleton.index("Head")][2, 2] > 0.95
+        for name in ("Leg.L", "Leg.R", "Foot.L", "Foot.R"):
+            assert np.allclose(world[skeleton.index(name)], impact[skeleton.index(name)], atol=2e-6)
+
+
+def test_heavy_hands_swing_together_and_recovery_has_no_bounce() -> None:
+    skeleton, _, clips = _pose_pack("Compact Chibi", ("AttackHeavySide",))
+    clip = clips["AttackHeavySide"]
+    for start, end in ((.43, .48), (.48, .51), (.51, .535)):
+        before = evaluate_clip(skeleton, clip, start)
+        after = evaluate_clip(skeleton, clip, end)
+        motions = [_joint_position(skeleton, after, hand) - _joint_position(skeleton, before, hand)
+                   for hand in ("Hand.L", "Hand.R")]
+        cosine = np.dot(*motions) / (np.linalg.norm(motions[0]) * np.linalg.norm(motions[1]))
+        assert cosine > 0.9
+    from chibi_skin_generator.animations import sample_track
+    for track in clip.tracks:
+        if track.path != "rotation":
+            continue
+        ready = track.values[0]
+        distances = [2 * np.arccos(np.clip(abs(np.dot(sample_track(track, float(t)), ready)), 0, 1))
+                     for t in np.linspace(.535, .85, 100)]
+        assert np.max(np.diff(distances)) < 1e-5
 
 
 @pytest.mark.parametrize("preset_name", ("Compact Chibi", "Balanced Chibi", "Big Head"))

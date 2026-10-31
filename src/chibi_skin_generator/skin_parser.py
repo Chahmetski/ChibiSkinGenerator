@@ -56,11 +56,13 @@ def load_skin(path: str | Path, arm_choice: ArmChoice = "Auto") -> SkinData:
 
     try:
         with Image.open(skin_path) as opened:
-            opened.load()
+            if opened.format != "PNG":
+                raise SkinError("Содержимое файла должно быть PNG, одного расширения недостаточно.")
             if opened.size != (64, 64):
                 raise SkinError(
                     f"Ожидался Minecraft-скин 64×64, получен {opened.width}×{opened.height}."
                 )
+            opened.load()
             image = opened.convert("RGBA")
     except (UnidentifiedImageError, OSError) as exc:
         raise SkinError(f"Не удалось прочитать PNG: {exc}") from exc

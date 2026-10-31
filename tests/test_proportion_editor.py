@@ -79,3 +79,43 @@ def test_animation_checkboxes_default_on_and_restore_qsettings(
     restored.core_combat_pack_button.click()
     assert all(checkbox.isChecked() for checkbox in restored.animation_checkboxes.values())
     restored.deleteLater()
+
+
+def test_paths_arm_choice_thumbnail_and_skin_validation(application, tmp_path):
+    from PIL import Image
+    skin = tmp_path / "preview.png"
+    Image.new("RGBA", (64, 64), (80, 140, 200, 255)).save(skin)
+    settings = QSettings(str(tmp_path / "session.ini"), QSettings.Format.IniFormat)
+    window = MainWindow(settings)
+    window.skin_edit.setText(str(skin))
+    window.output_edit.setText(str(tmp_path / "output"))
+    window.arm_combo.setCurrentText("Alex")
+    assert not window.skin_thumbnail.pixmap().isNull()
+    assert "Alex" in window.skin_info.text()
+    settings.sync()
+    restored = MainWindow(settings)
+    assert restored.skin_edit.text() == str(skin)
+    assert restored.output_edit.text() == str(tmp_path / "output")
+    assert restored.arm_combo.currentText() == "Alex"
+    assert not restored.skin_thumbnail.pixmap().isNull()
+    Image.new("RGB", (64, 64)).save(skin, format="BMP")
+    restored._sync_preview_arm_width()
+    assert restored.skin_thumbnail.pixmap().isNull()
+    assert "PNG" in restored.skin_info.text()
+    window.deleteLater()
+    restored.deleteLater()
+
+
+def test_preset_save_permission_error_is_displayed(application, tmp_path, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog, QMessageBox
+    settings = QSettings(str(tmp_path / "error.ini"), QSettings.Format.IniFormat)
+    blocked = tmp_path / "blocked"
+    storage = PresetStorage(blocked)
+    editor = ProportionEditor(settings, storage)
+    blocked.write_text("not a directory")
+    monkeypatch.setattr(QInputDialog, "getText", lambda *args: ("Example", True))
+    messages = []
+    monkeypatch.setattr(QMessageBox, "critical", lambda *args: messages.append(args[-1]))
+    editor._save_preset()
+    assert messages and "пресет" in messages[0]
+    editor.deleteLater()

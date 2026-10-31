@@ -180,7 +180,7 @@ def _quaternion_matrix(quaternion: np.ndarray) -> np.ndarray:
 
 
 def sample_track(track: AnimationTrack, time: float) -> np.ndarray:
-    """Evaluate a LINEAR glTF track at ``time`` using normalized quaternion lerp."""
+    """Evaluate glTF LINEAR: linear vectors and shortest-path quaternion SLERP."""
     times = np.asarray(track.times, dtype=np.float64)
     if time <= float(times[0]):
         return np.asarray(track.values[0], dtype=np.float64)
@@ -191,8 +191,17 @@ def sample_track(track: AnimationTrack, time: float) -> np.ndarray:
     fraction = (time - float(times[lower])) / float(times[upper] - times[lower])
     first = np.asarray(track.values[lower], dtype=np.float64)
     second = np.asarray(track.values[upper], dtype=np.float64)
-    value = first * (1.0 - fraction) + second * fraction
-    return normalize_quaternion(value) if track.path == "rotation" else value
+    if track.path != "rotation":
+        return first * (1.0 - fraction) + second * fraction
+    first, second = normalize_quaternion(first), normalize_quaternion(second)
+    dot = float(np.dot(first, second))
+    if dot < 0:
+        second, dot = -second, -dot
+    if dot > 0.9995:
+        return normalize_quaternion(first * (1-fraction) + second * fraction)
+    angle = float(np.arccos(np.clip(dot, -1, 1)))
+    return normalize_quaternion((np.sin((1-fraction)*angle)*first +
+                                 np.sin(fraction*angle)*second)/np.sin(angle))
 
 
 def evaluate_tracks(
@@ -266,6 +275,28 @@ def _grounded_hips_translation(
     return np.asarray(
         bind_translation + (x_offset, -lowest, z_offset), dtype=np.float32
     )
+
+
+def ground_clip(skeleton: Skeleton, meshes: Sequence[MeshData], clip: AnimationClip) -> AnimationClip:
+    """Bake ground contact at 120 Hz, including authored impact/hold keys."""
+    times = np.unique(np.concatenate((np.linspace(0, clip.duration,
+        int(np.ceil(clip.duration*120))+1, dtype=np.float32), clip.tracks[0].times)))
+    rotations = tuple(AnimationTrack(track.joint_name, times, np.asarray([
+        sample_track(track,float(t)) for t in times],dtype=np.float32))
+        for track in clip.tracks if track.path == "rotation")
+    original = next((track for track in clip.tracks if track.path == "translation"),None)
+    values = []
+    for time in times:
+        position = sample_track(original,float(time)) if original is not None else np.zeros(3)
+        values.append(_grounded_hips_translation(skeleton,meshes,rotations,float(time),
+                      horizontal_offset=(float(position[0]),float(position[2]))))
+    values = np.asarray(values,dtype=np.float32)
+    if clip.extras.get("loop"):
+        values[-1] = values[0]
+        for track in rotations:
+            track.values[-1] = track.values[0]
+    return AnimationClip(clip.name,clip.duration,
+                         rotations+(_translation_track("Hips",times,values),),clip.extras)
 
 
 def _lowered_hips_values(
@@ -488,23 +519,53 @@ def attack_dual_daggers_clip(skeleton: Skeleton) -> AnimationClip:
     return AnimationClip("AttackDualDaggers", 0.9, tracks, MappingProxyType({"loop": False, "inPlace": True}))
 
 
-def attack_heavy_side_clip(skeleton: Skeleton) -> AnimationClip:
-    times = np.asarray((0.0, 0.16, 0.34, 0.51, 0.68, 0.85), dtype=np.float32)
-    tracks = (
-        _track(skeleton, "Spine", times, tuple((("x", pitch), ("y", yaw), ("z", roll)) for pitch, yaw, roll in ((2.0, 0.0, 0.0), (3.0, -22.0, 5.0), (5.0, -28.0, 7.0), (10.0, 24.0, -8.0), (6.0, 10.0, -3.0), (1.0, 0.0, 0.0))), loop=False),
-        _track(skeleton, "Head", times, tuple((("x", pitch), ("y", yaw)) for pitch, yaw in ((-2.0, 0.0), (-3.0, 16.0), (-4.0, 20.0), (-7.0, -18.0), (-4.0, -7.0), (-1.0, 0.0))), loop=False),
-        _track(skeleton, "Arm.R", times, tuple((("x", pitch), ("z", side)) for pitch, side in ((30.0, 24.0), (34.0, 42.0), (42.0, 48.0), (88.0, -30.0), (62.0, -12.0), (12.0, 0.0))), loop=False),
-        _track(skeleton, "Arm.L", times, tuple((("x", pitch), ("z", side)) for pitch, side in ((38.0, -18.0), (42.0, -12.0), (50.0, -15.0), (78.0, 28.0), (57.0, 12.0), (12.0, 0.0))), loop=False),
-        _track(skeleton, "Leg.L", times, tuple((("x", pitch), ("z", -9.0)) for pitch in (4.0, 7.0, 9.0, 12.0, 8.0, 4.0)), loop=False),
-        _track(skeleton, "Leg.R", times, tuple((("x", pitch), ("z", 9.0)) for pitch in (4.0, 7.0, 9.0, 12.0, 8.0, 4.0)), loop=False),
-    )
-    hips = _lowered_hips_values(skeleton, times, (0.04, 0.07, 0.09, 0.11, 0.07, 0.04))
-    return AnimationClip(
-        "AttackHeavySide",
-        0.85,
-        tracks + (_translation_track("Hips", times, hips),),
-        MappingProxyType({"loop": False, "inPlace": True, "hitTime": 0.51}),
-    )
+def attack_heavy_side_clip(skeleton: Skeleton, meshes: Sequence[MeshData]) -> AnimationClip:
+    """Raised wind-up, downward strike and smooth weight shift without bounce."""
+    beats = np.asarray((0, .10, .25, .39, .43, .48, .51, .535,
+                        .58, .65, .73, .80, .85), dtype=np.float32)
+    poses = {
+        "Spine": [(2,0,0),(0,-10,3),(-4,-10,5),(-6,-12,6),(-5,-12,6),(3,-4,3),(10,8,-5),(10,8,-5)],
+        "Head": [(-2,0,0),(0,8,0),(4,10,-2),(6,12,-3),(5,12,-3),(-2,4,0),(-7,-6,0),(-7,-6,0)],
+        "Arm.R": [(30,0,24),(65,0,-15),(105,0,-45),(135,0,-45),(135,0,-45),(95,0,-35),(40,0,-20),(16,0,-24)],
+    }
+    poses["Arm.L"] = list(poses["Arm.R"])
+    for values in poses.values():
+        start, end = np.asarray(values[7]), np.asarray(values[0])
+        for time in beats[8:]:
+            progress = (float(time)-float(beats[7]))/(float(beats[-1])-float(beats[7]))
+            values.append(tuple(start+(end-start)*progress*progress*(3-2*progress)))
+    authored = tuple(_track(skeleton, name, beats,
+        tuple(tuple(zip(("x","y","z"), angles)) for angles in values), loop=False)
+        for name,values in poses.items())
+    right = next(track for track in authored if track.joint_name == "Arm.R")
+    rh = skeleton.joints[skeleton.index("Hand.R")].local_matrix[:3,3]
+    lh = skeleton.joints[skeleton.index("Hand.L")].local_matrix[:3,3]
+    correction = axis_angle_quaternion("z", float(np.rad2deg(
+        np.arctan2(rh[1],rh[0])-np.arctan2(lh[1],lh[0]))))
+    authored = tuple(AnimationTrack(track.joint_name, beats, np.asarray([
+        quaternion_multiply(value,correction) for value in right.values],dtype=np.float32))
+        if track.joint_name == "Arm.L" else track for track in authored)
+    times = np.unique(np.concatenate((np.linspace(0,.85,103,dtype=np.float32),beats)))
+    def leg_pitch(time: float) -> float:
+        if time <= .39:
+            t=time/.39
+            return 4+8*t*t*(3-2*t)
+        if time <= .43:
+            return 12
+        if time <= .51:
+            t=(time-.43)/.08
+            return 12-8*t*t*(3-2*t)
+        return 4
+    rotations = tuple(AnimationTrack(track.joint_name,times,np.asarray([
+        sample_track(track,float(t)) for t in times],dtype=np.float32)) for track in authored)
+    rotations += tuple(_track(skeleton,name,times,
+        tuple((("x",leg_pitch(float(t))),("z",side)) for t in times),loop=False)
+        for name,side in (("Leg.L",-9),("Leg.R",9)))
+    hips = np.asarray([_grounded_hips_translation(skeleton,meshes,rotations,float(t))
+                       for t in times],dtype=np.float32)
+    return AnimationClip("AttackHeavySide",.85,
+        rotations+(_translation_track("Hips",times,hips),),
+        MappingProxyType({"loop":False,"inPlace":True,"hitTime":.51}))
 
 
 def death_clip(skeleton: Skeleton, meshes: Sequence[MeshData]) -> AnimationClip:
@@ -612,10 +673,12 @@ def build_animation_clips(
     for name, factory in CLIP_FACTORIES.items():
         if name not in selected:
             continue
-        if name in {"SitIdle", "Death"}:
+        if name in {"SitIdle", "Death", "AttackHeavySide"}:
             if meshes is None:
                 raise ValueError(f"{name} requires generated meshes for ground contact.")
             clips.append(factory(skeleton, meshes))
         else:
             clips.append(factory(skeleton))
-    return tuple(clips)
+    return tuple(ground_clip(skeleton, meshes, clip)
+                 if meshes is not None and clip.name in HIPS_TRANSLATION_CLIPS else clip
+                 for clip in clips)

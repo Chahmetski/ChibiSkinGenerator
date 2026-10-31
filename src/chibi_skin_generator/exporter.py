@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+from tempfile import NamedTemporaryFile
 import struct
 from dataclasses import dataclass
 from pathlib import Path
@@ -432,6 +434,7 @@ def export_glb(
     *,
     diagnostic_pose: bool = False,
     material_mode: str = PIXEL_UNLIT,
+    overwrite: bool = False,
 ) -> Path:
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -446,10 +449,18 @@ def export_glb(
         diagnostic_pose=diagnostic_pose,
     )
 
-    temporary = output.with_suffix(output.suffix + ".tmp")
+    with NamedTemporaryFile(dir=output.parent, suffix=".glb.tmp", delete=False) as handle:
+        temporary = Path(handle.name)
     try:
         temporary.write_bytes(blob)
-        temporary.replace(output)
+        if overwrite:
+            temporary.replace(output)
+        elif os.name == "nt":
+            # Windows rename fails if the destination exists, including FAT/exFAT.
+            temporary.rename(output)
+        else:
+            # Atomic no-clobber publication, even with two concurrent generators.
+            os.link(temporary, output)
     finally:
         if temporary.exists():
             temporary.unlink()
@@ -488,14 +499,22 @@ def generate_model(
         meshes=meshes,
     )
     output = output_dir / f"{skin.path.stem}_chibi.glb"
-    export_glb(
-        meshes,
-        skin.image,
-        output,
-        skeleton,
-        animation_clips,
-        material_mode=material_mode,
-    )
+    base_output = output
+    number = 1
+    while True:
+        try:
+            export_glb(
+                meshes,
+                skin.image,
+                output,
+                skeleton,
+                animation_clips,
+                material_mode=material_mode,
+            )
+            break
+        except FileExistsError:
+            number += 1
+            output = base_output.with_name(f"{base_output.stem}_{number}.glb")
     return ExportResult(
         output.resolve(),
         skin.arm_model,

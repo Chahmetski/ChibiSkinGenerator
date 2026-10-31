@@ -32,7 +32,7 @@ from .proportions import (
     get_builtin_preset,
 )
 
-CUSTOM = "Custom"
+CUSTOM = "Свои параметры"
 
 
 class ParameterControl(QWidget):
@@ -102,13 +102,13 @@ class ProportionEditor(QWidget):
         self.controls: dict[str, ParameterControl] = {}
 
         self.preset_combo = QComboBox()
-        self.load_button = QPushButton("Load Preset")
-        self.save_button = QPushButton("Save Preset")
-        self.delete_button = QPushButton("Delete User Preset")
-        self.reset_button = QPushButton("Reset")
+        self.load_button = QPushButton("Загрузить")
+        self.save_button = QPushButton("Сохранить пресет")
+        self.delete_button = QPushButton("Удалить пресет")
+        self.reset_button = QPushButton("Сбросить")
         self.preview = ProportionPreview()
 
-        preset_box = QGroupBox("Presets")
+        preset_box = QGroupBox("Пресеты")
         preset_layout = QVBoxLayout(preset_box)
         preset_layout.addWidget(self.preset_combo)
         preset_buttons = QHBoxLayout()
@@ -134,6 +134,7 @@ class ProportionEditor(QWidget):
             row_layout.setContentsMargins(0, 2, 0, 2)
             row_layout.addWidget(QLabel(spec.label))
             control = ParameterControl(field_name)
+            control.setToolTip(f"{spec.label}: {spec.minimum}–{spec.maximum}. Значения до общего масштаба.")
             control.valueChanged.connect(
                 lambda value, name=field_name: self._parameter_changed(name, value)
             )
@@ -184,7 +185,12 @@ class ProportionEditor(QWidget):
             for name in builtin_preset_names():
                 self.preset_combo.addItem(name, "builtin")
             self.preset_combo.insertSeparator(self.preset_combo.count())
-            for name in self.storage.list_names():
+            try:
+                user_names = self.storage.list_names()
+            except (PresetError, OSError) as exc:
+                user_names = []
+                QMessageBox.warning(self, "Ошибка пресетов", str(exc))
+            for name in user_names:
                 self.preset_combo.addItem(name, "user")
             self.preset_combo.insertSeparator(self.preset_combo.count())
             self.preset_combo.addItem(CUSTOM, "custom")
@@ -235,18 +241,18 @@ class ProportionEditor(QWidget):
             else:
                 self._update_delete_button()
                 return
-        except (PresetError, ProportionError) as exc:
+        except (PresetError, ProportionError, OSError) as exc:
             QMessageBox.critical(self, "Ошибка пресета", str(exc))
             return
         self._apply_settings(settings, name)
 
     def _save_preset(self) -> None:
-        name, accepted = QInputDialog.getText(self, "Save Preset", "Название пресета:")
+        name, accepted = QInputDialog.getText(self, "Сохранить пресет", "Название пресета:")
         if not accepted:
             return
         try:
             preset = self.storage.save(name, self._settings)
-        except PresetError as exc:
+        except (PresetError, OSError) as exc:
             QMessageBox.critical(self, "Ошибка сохранения", str(exc))
             return
         self._reload_preset_names(preset.name)
@@ -258,7 +264,7 @@ class ProportionEditor(QWidget):
         name = self.preset_combo.currentText()
         try:
             self.storage.delete(name)
-        except PresetError as exc:
+        except (PresetError, OSError) as exc:
             QMessageBox.critical(self, "Ошибка удаления", str(exc))
             return
         self._reload_preset_names(COMPACT_CHIBI)
@@ -272,7 +278,7 @@ class ProportionEditor(QWidget):
         elif kind == "user":
             try:
                 preset = self.storage.load(name)
-            except PresetError as exc:
+            except (PresetError, OSError) as exc:
                 QMessageBox.critical(self, "Ошибка пресета", str(exc))
                 return
             self._apply_settings(preset.settings, preset.name)
@@ -291,6 +297,8 @@ class ProportionEditor(QWidget):
 
     def _restore_last_state(self) -> None:
         selected = str(self.qsettings.value("proportions/selected_preset", DEFAULT_PRESET))
+        if selected == "Custom":
+            selected = CUSTOM
         raw = self.qsettings.value("proportions/values")
         settings = get_builtin_preset(DEFAULT_PRESET)
         if raw:

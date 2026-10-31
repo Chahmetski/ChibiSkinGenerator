@@ -3,3 +3,10 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 *.glb
+build/
+dist/
+verification_output/
+*.spec
+
+/AGENTS.md
+/AGENTS.txt
