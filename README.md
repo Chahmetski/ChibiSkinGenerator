@@ -1,5 +1,7 @@
 # Chibi Skin Generator
 
+![Chibi Skin Generator](docs/assets/cover.png)
+
 Offline Windows desktop application that converts a standard 64×64 Minecraft
 skin PNG into an editable chibi GLB with an embedded texture and a 12-joint rig.
 
